@@ -4,7 +4,7 @@ A collection of small, open-source **Progressive Web Apps** for everyday life â€
 
 Every app lives in its own folder under [`apps/`](apps/) and is deployed as an independent site on [Netlify](https://www.netlify.com).
 
-**Homepage:** a short overview of all apps lives in [`site/`](site/). You are welcome to use them, fork them, deploy your own copy, or borrow pieces for your own projects.
+**Homepage:** [pockettools2.netlify.app](https://pockettools2.netlify.app) â€” a short overview of all apps (source in [`site/`](site/)). You are welcome to use them, fork them, deploy your own copy, or borrow pieces for your own projects.
 
 ## Apps
 
