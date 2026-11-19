@@ -139,7 +139,7 @@ textarea.field{min-height:90px;resize:vertical;line-height:1.45}
 
 /* layers: menus, sheets */
 #layer{position:fixed;inset:0;z-index:30;pointer-events:none}
-.dim{position:absolute;inset:0;background:rgba(0,0,0,.32);pointer-events:auto;animation:fade .3s ease}
+.dim{position:absolute;inset:-120px 0;background:rgba(0,0,0,.32);pointer-events:auto;animation:fade .3s ease}
 .dim.light{background:rgba(0,0,0,.08)}
 .popm{position:absolute;top:calc(64px + env(safe-area-inset-top));right:max(16px,calc(50% - 304px));width:250px;border-radius:26px;background:var(--pop);-webkit-backdrop-filter:blur(24px);backdrop-filter:blur(24px);box-shadow:0 20px 50px rgba(0,0,0,.22);padding:8px 0;pointer-events:auto;transform-origin:top right;animation:pop .28s cubic-bezier(.2,1.2,.3,1)}
 .popm button{display:flex;align-items:center;gap:12px;width:100%;min-height:46px;padding:0 18px;font-size:16px;text-align:left}
@@ -249,8 +249,10 @@ html[data-vt^=sheet] .sheet,html[data-vt^=sheet] .dim{animation:none}
 @keyframes vtPopNew{from{transform:translateX(-28%);opacity:.5}}
 @keyframes fadeOut{to{opacity:0}}
 @media (prefers-reduced-motion: reduce){*{animation-duration:.01s!important;transition-duration:.01s!important}}
-@keyframes up{from{transform:translateY(100%)}to{transform:none}}
-@keyframes down{to{transform:translateY(100%)}}
+@keyframes up{from{transform:translateY(calc(100% + 120px))}to{transform:none}}
+/* +120px: in the installed iOS app the screen extends below the layout viewport,
+   so 100% alone leaves the top edge of the sheet peeking out under the tab bar */
+@keyframes down{to{transform:translateY(calc(100% + 120px))}}
 @keyframes fade{from{opacity:0}to{opacity:1}}
 @keyframes pop{from{opacity:0;transform:scale(.6)}to{opacity:1;transform:none}}
 @keyframes rise{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}

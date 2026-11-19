@@ -1,5 +1,5 @@
 // Offline cache. Bump the version whenever files change.
-const CACHE = 'polka-v5';
+const CACHE = 'polka-v6';
 const COVERS = 'polka-covers';
 const FILES = ['/', '/index.html', '/app.js', '/onboarding.js', '/config.js', '/manifest.webmanifest', '/icon-192.png', '/icon-512.png', '/apple-touch-icon.png', '/zxing_reader.wasm'];
 

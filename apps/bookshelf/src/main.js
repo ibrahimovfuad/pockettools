@@ -650,7 +650,7 @@ function closeLayer(how) {
   if (!sh) { clearLayer(); return; }
   const dim = L.querySelector('.dim');
   if (how === 'swipe') {   // the sheet is already being dragged — finish closing from the current spot
-    sh.style.transition = 'transform .26s cubic-bezier(.3,.6,.4,1)'; sh.style.transform = 'translateY(105%)';
+    sh.style.transition = 'transform .26s cubic-bezier(.3,.6,.4,1)'; sh.style.transform = 'translateY(calc(100% + 120px))';
     if (dim) { dim.style.transition = 'opacity .26s'; dim.style.opacity = 0; }
     setTimeout(() => { if (!openSheetId) clearLayer(); }, 270);
     return;
@@ -770,8 +770,12 @@ function openBook(id, src) {
       openBookNow(id);
       const L = $('layer'), hc = L.querySelector('.hero .cover');
       if (hc) hc.style.viewTransitionName = 'bookcover';
-      L.querySelector('.sheet').style.viewTransitionName = 'sheet';
-      L.querySelector('.dim').style.viewTransitionName = 'dim';
+      const sh = L.querySelector('.sheet'), dim = L.querySelector('.dim');
+      sh.style.viewTransitionName = 'sheet';
+      dim.style.viewTransitionName = 'dim';
+      // the view transition already animates them in; without this their own CSS animation
+      // would replay once data-vt is removed and the sheet would slide up a second time
+      sh.style.animation = dim.style.animation = 'none';
     })?.finished.finally(() => { const L = $('layer'); L.querySelectorAll('.sheet,.dim,.hero .cover').forEach(e => { e.style.viewTransitionName = ''; }); });
     return;
   }
