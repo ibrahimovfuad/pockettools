@@ -5,6 +5,7 @@ All notable changes to Pocket Tools are listed here, newest first.
 ## 2026-11-19
 
 ### Changed
+- All apps feel more native: text can no longer be selected (except links and input fields), there is no long-press menu on regular text, and double-tap no longer zooms the page. Pinch-to-zoom still works.
 - All apps update themselves: service workers are now network-first, and installed apps check for a new version on launch and when reopened, then reload once (never while you are typing or on a call). No more reinstalling from the home screen.
 
 ### Fixed

@@ -1,5 +1,5 @@
 // Offline cache and notifications. Bump the version whenever files change.
-const CACHE = 'mood-v5';
+const CACHE = 'mood-v6';
 const FILES = ['./', 'index.html', 'app.js', 'onboarding.js', 'config.js', 'manifest.webmanifest', 'icon-192.png', 'icon-512.png', 'apple-touch-icon.png'];
 
 self.addEventListener('install', e => {
