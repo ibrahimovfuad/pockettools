@@ -510,7 +510,22 @@ $('remHour').onchange = async () => {
 let lastDay = iso(today());
 setInterval(() => { const t = iso(today()); if (t !== lastDay) { if (rateDate === lastDay) rateDate = t; lastDay = t; renderToday(); renderStats(); } }, 60000);
 
-if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+// Service worker with automatic updates: check for a new version on launch and whenever the app
+// returns to the foreground (iOS resumes installed apps without reloading them). When a new
+// version takes over, reload once — unless the user is typing; then wait until later.
+if ('serviceWorker' in navigator) {
+  const hadSW = !!navigator.serviceWorker.controller;
+  let updatePending = false, reloading = false;
+  const busy = () => { const a = document.activeElement; return !!(a && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)); };
+  const applyUpdate = () => { if (reloading) return; if (busy()) { updatePending = true; return; } reloading = true; location.reload(); };
+  navigator.serviceWorker.addEventListener('controllerchange', () => { if (hadSW) applyUpdate(); });
+  navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).then(reg => {
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState !== 'visible') return;
+      if (updatePending) applyUpdate(); else reg.update().catch(() => {});
+    });
+  }).catch(() => {});
+}
 
 // start-up, at the very end once everything is declared
 start();

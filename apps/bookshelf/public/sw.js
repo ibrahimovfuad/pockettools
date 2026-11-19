@@ -1,5 +1,5 @@
 // Offline cache. Bump the version whenever files change.
-const CACHE = 'polka-v6';
+const CACHE = 'polka-v7';
 const COVERS = 'polka-covers';
 const FILES = ['/', '/index.html', '/app.js', '/onboarding.js', '/config.js', '/manifest.webmanifest', '/icon-192.png', '/icon-512.png', '/apple-touch-icon.png', '/zxing_reader.wasm'];
 
@@ -12,7 +12,7 @@ self.addEventListener('activate', e => {
     .then(() => self.clients.claim()));
 });
 
-// App files: instant start from cache + background refresh.
+// App files (network first, see below).
 // Sign-in (/__/auth), book search and Firebase bypass the cache.
 self.addEventListener('fetch', e => {
   const url = new URL(e.request.url);
@@ -31,9 +31,14 @@ self.addEventListener('fetch', e => {
   const nav = e.request.mode === 'navigate';
   const key = nav ? '/index.html' : url.pathname;
   if (!nav && !FILES.includes(key)) return;
-  e.respondWith(caches.open(CACHE).then(async cache => {
-    const cached = await cache.match(key);
-    const fresh = fetch(nav ? '/index.html' : e.request).then(r => { if (r.ok) cache.put(key, r.clone()); return r; }).catch(() => cached);
-    return cached || fresh;
-  }));
+  e.respondWith(caches.open(CACHE).then(cache => networkFirst(cache, nav ? '/index.html' : e.request, key)));
 });
+
+// Network first: an online launch always gets the latest version. The cache is only a fallback
+// for offline use or a very slow network (after 4 s), so updates never need a reinstall.
+function networkFirst(cache, req, key = req) {
+  const fromCache = () => cache.match(key, { ignoreSearch: true });
+  const net = fetch(req).then(r => { if (r.ok) cache.put(key, r.clone()); return r; });
+  const slow = new Promise(res => setTimeout(res, 4000)).then(fromCache).then(c => c || net);
+  return Promise.race([net, slow]).catch(() => fromCache().then(c => c || Response.error()));
+}

@@ -377,7 +377,22 @@ pip.addEventListener('pointercancel', drop);
 addEventListener('resize', () => body.classList.contains('incall') && placePip());
 
 // ===== Installable app (PWA) =====
-if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+// Service worker with automatic updates: check for a new version on launch and whenever the app
+// returns to the foreground (iOS resumes installed apps without reloading them). When a new
+// version takes over, reload once — unless the user is typing or on a call; then wait until later.
+if ('serviceWorker' in navigator) {
+  const hadSW = !!navigator.serviceWorker.controller;
+  let updatePending = false, reloading = false;
+  const busy = () => { const a = document.activeElement; return !!(a && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)) || document.body.classList.contains('incall') || !!(peer && !peer.destroyed); };
+  const applyUpdate = () => { if (reloading) return; if (busy()) { updatePending = true; return; } reloading = true; location.reload(); };
+  navigator.serviceWorker.addEventListener('controllerchange', () => { if (hadSW) applyUpdate(); });
+  navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).then(reg => {
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState !== 'visible') return;
+      if (updatePending) applyUpdate(); else reg.update().catch(() => {});
+    });
+  }).catch(() => {});
+}
 
 const standalone = matchMedia('(display-mode: standalone)').matches || navigator.standalone;
 const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
