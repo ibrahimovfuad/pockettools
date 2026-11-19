@@ -7,19 +7,19 @@ const store = {
   set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
 };
 
-// ================= Настройки =================
+// ================= Settings =================
 const DEFAULTS = { buttons: [30, 60, 300], delay: 400, rep: 400, acc: 0, wake: true, sound: true, loop: true };
 const STEPS = [5, 10, 15, 20, 30, 45, 60, 120, 180, 300, 600, 900, 1800, 3600];
 let S = Object.assign({}, DEFAULTS, store.get('timer-settings', {}));
 const saveS = () => store.set('timer-settings', S);
-const label = s => s < 60 ? `+${s}с` : s < 3600 ? `+${s / 60}м` : `+${s / 3600}ч`;
-const longLabel = s => s < 60 ? `${s} сек` : s < 3600 ? `${s / 60} мин` : `${s / 3600} ч`;
+const label = s => s < 60 ? `+${s}s` : s < 3600 ? `+${s / 60}m` : `+${s / 3600}h`;
+const longLabel = s => s < 60 ? `${s} sec` : s < 3600 ? `${s / 60} min` : `${s / 3600} h`;
 
 let toastId;
 function toast(t) { const e = $('toast'); e.textContent = t; e.classList.add('show'); clearTimeout(toastId); toastId = setTimeout(() => e.classList.remove('show'), 1600); }
 
-// ================= Удержание кнопки =================
-// нажал — +1 раз; держишь дольше «паузы» — добавляется шагами (с ускорением, если включено)
+// ================= Press and hold =================
+// tap adds once; holding longer than the delay keeps adding in steps (accelerating if enabled)
 function holdButton(btn, onAdd) {
   let t = null;
   const stop = () => { clearTimeout(t); t = null; btn.classList.remove('on'); };
@@ -36,9 +36,9 @@ function holdButton(btn, onAdd) {
   ['pointerup', 'pointercancel', 'lostpointercapture'].forEach(n => btn.addEventListener(n, stop));
 }
 
-// ================= Таймер =================
+// ================= Timer =================
 const MAX = 24 * 3600 - 1;
-// состояние хранится, чтобы таймер пережил сворачивание и перезапуск приложения
+// state is persisted so the timer survives backgrounding and app restarts
 let T = Object.assign({ status: 'idle', left: 0, total: 0, endAt: 0, last: 0 }, store.get('timer-state', {}));
 const saveT = () => store.set('timer-state', T);
 let tick = null, ringId = null, ringStop = null;
@@ -57,8 +57,8 @@ function add(sec) {
 function start() {
   if (T.status === 'ringing') { stopRing(); return; }
   if (T.status === 'running') { pause(); return; }
-  if (!T.left && T.last) { T.left = T.total = T.last; }       // «Повторить» прошлый таймер
-  if (!T.left) { toast('Сначала добавь время'); return; }
+  if (!T.left && T.last) { T.left = T.total = T.last; }       // "Repeat" the previous timer
+  if (!T.left) { toast('Add some time first'); return; }
   unlockAudio();
   if (T.status !== 'paused') T.total = T.left;
   T.last = T.total;
@@ -69,7 +69,7 @@ function pause() { T.left = Math.ceil(remaining()); T.status = 'paused'; saveT()
 function reset() {
   if (T.status === 'ringing') stopRing();
   clearInterval(tick); wakeOff();
-  // первое нажатие на пустом таймере забывает и «Повторить»
+  // the first tap on an empty timer also forgets "Repeat"
   if (T.status === 'idle' && !T.left) T.last = 0;
   T = { status: 'idle', left: 0, total: 0, endAt: 0, last: T.last };
   saveT(); render();
@@ -85,7 +85,7 @@ function finish() {
   ring();
 }
 
-// ================= Отрисовка =================
+// ================= Rendering =================
 const ARC = 2 * Math.PI * 142;
 function render() {
   const r = remaining();
@@ -93,7 +93,7 @@ function render() {
   const frac = T.total ? Math.min(1, r / T.total) : 0;
   $('arc').style.strokeDashoffset = ARC * (1 - (T.status === 'idle' || T.status === 'ready' ? (T.left ? 1 : 0) : frac));
   $('arc').style.stroke = T.status === 'paused' ? 'var(--pause)' : T.status === 'ringing' ? 'var(--stop)' : 'var(--accent)';
-  const st = { idle: T.last ? 'Повторить ' + fmt(T.last) + '?' : 'Добавь время', ready: 'Нажми «Старт»', running: '', paused: 'Пауза', ringing: 'Время вышло' }[T.status];
+  const st = { idle: T.last ? 'Repeat ' + fmt(T.last) + '?' : 'Add time', ready: 'Press Start', running: '', paused: 'Paused', ringing: "Time's up" }[T.status];
   $('state').textContent = st;
   if (T.status === 'running') {
     const d = new Date(T.endAt);
@@ -101,12 +101,12 @@ function render() {
   } else $('ends').textContent = '';
   const g = $('goBtn');
   g.className = 'round' + (T.status === 'running' ? ' pause' : T.status === 'ringing' ? ' stop' : '');
-  g.textContent = T.status === 'running' ? 'Пауза' : T.status === 'ringing' ? 'Стоп' : T.status === 'paused' ? 'Дальше' : (T.status === 'idle' && T.last ? 'Повтор' : 'Старт');
+  g.textContent = T.status === 'running' ? 'Pause' : T.status === 'ringing' ? 'Stop' : T.status === 'paused' ? 'Resume' : (T.status === 'idle' && T.last ? 'Repeat' : 'Start');
 }
 
-// ================= Звук =================
+// ================= Sound =================
 let ac = null;
-function unlockAudio() {      // iPhone разрешает звук только после нажатия — «разогреваем» его на «Старте»
+function unlockAudio() {      // iPhone only allows audio after a tap, so we unlock it on Start
   try { ac = ac || new (window.AudioContext || window.webkitAudioContext)(); if (ac.state === 'suspended') ac.resume(); } catch (e) {}
 }
 function chime() {
@@ -134,37 +134,37 @@ function stopRing() {
   wakeOff(); render();
 }
 
-// ================= Экран не гаснет =================
+// ================= Keep screen awake =================
 let lock = null;
 async function wakeOn() {
   if (!S.wake || !('wakeLock' in navigator) || lock) return;
   try { lock = await navigator.wakeLock.request('screen'); lock.addEventListener('release', () => { lock = null; }); } catch (e) { lock = null; }
 }
 function wakeOff() { if (lock) { lock.release().catch(() => {}); lock = null; } }
-// после сворачивания браузер снимает запрет — возвращаем его, если таймер ещё идёт
+// the browser drops the wake lock when backgrounded; re-acquire it if the timer is still running
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState !== 'visible') return;
   if (T.status === 'running') { if (remaining() <= 0) finish(); else { run(); wakeOn(); } }
 });
 
-// ================= Кнопки таймера =================
+// ================= Timer buttons =================
 function buildAdds() {
   const box = $('adds'); box.innerHTML = '';
-  S.buttons.forEach(s => { const b = document.createElement('button'); b.className = 'add'; b.textContent = label(s); b.setAttribute('aria-label', 'Добавить ' + longLabel(s)); holdButton(b, () => add(s)); box.appendChild(b); });
+  S.buttons.forEach(s => { const b = document.createElement('button'); b.className = 'add'; b.textContent = label(s); b.setAttribute('aria-label', 'Add ' + longLabel(s)); holdButton(b, () => add(s)); box.appendChild(b); });
   const tb = $('tryBtns'); tb.innerHTML = '';
   S.buttons.forEach(s => { const b = document.createElement('button'); b.className = 'add'; b.textContent = label(s); holdButton(b, () => tryAdd(s)); tb.appendChild(b); });
 }
 $('goBtn').onclick = start;
 $('resetBtn').onclick = reset;
 
-// ================= Вкладки =================
+// ================= Tabs =================
 document.querySelectorAll('#tabbar button').forEach(b => b.onclick = () => {
   document.querySelectorAll('#tabbar button').forEach(x => x.classList.toggle('on', x === b));
   document.querySelectorAll('.tab').forEach(s => s.classList.toggle('hide', s.id !== 'tab-' + b.dataset.tab));
   scrollTo(0, 0);
 });
 
-// ================= Экран настроек =================
+// ================= Settings screen =================
 let trySec = 0;
 function tryAdd(s) { trySec = Math.min(trySec + s, MAX); $('tryV').textContent = fmt(trySec); }
 $('tryClear').onclick = () => { trySec = 0; $('tryV').textContent = '00:00'; };
@@ -177,20 +177,20 @@ function fillSettings() {
     sel.value = S.buttons[i];
     sel.onchange = () => { S.buttons[i] = Number(sel.value); saveS(); buildAdds(); };
   });
-  const ranges = { delay: v => v + ' мс', rep: v => v + ' мс', acc: v => Number(v) ? '−' + v + '% за шаг' : 'нет' };
+  const ranges = { delay: v => v + ' ms', rep: v => v + ' ms', acc: v => Number(v) ? '−' + v + '% per step' : 'off' };
   Object.keys(ranges).forEach(k => {
     const el = $(k); el.value = S[k]; $(k + 'V').textContent = ranges[k](S[k]); paintRange(el);
     el.oninput = () => { S[k] = Number(el.value); $(k + 'V').textContent = ranges[k](el.value); paintRange(el); saveS(); };
   });
   ['wake', 'sound', 'loop'].forEach(k => { $(k).checked = !!S[k]; $(k).onchange = () => { S[k] = $(k).checked; saveS(); if (k === 'wake') { if (S.wake && T.status === 'running') wakeOn(); else wakeOff(); } }; });
-  if (!('wakeLock' in navigator)) $('wakeNote').textContent = 'Этот браузер не умеет держать экран включённым. На iPhone нужна iOS 18.4 или новее.';
+  if (!('wakeLock' in navigator)) $('wakeNote').textContent = 'This browser cannot keep the screen on. On iPhone it needs iOS 18.4 or later.';
 }
-$('testSound').onclick = () => { unlockAudio(); const was = S.sound; S.sound = true; chime(); S.sound = was; if (!was) toast('Звук выключен в настройках выше'); };
-$('defaults').onclick = () => { S = Object.assign({}, DEFAULTS, { buttons: DEFAULTS.buttons.slice() }); saveS(); fillSettings(); buildAdds(); toast('Настройки сброшены'); };
+$('testSound').onclick = () => { unlockAudio(); const was = S.sound; S.sound = true; chime(); S.sound = was; if (!was) toast('Sound is turned off in the settings above'); };
+$('defaults').onclick = () => { S = Object.assign({}, DEFAULTS, { buttons: DEFAULTS.buttons.slice() }); saveS(); fillSettings(); buildAdds(); toast('Settings restored'); };
 
-// ================= Запуск =================
+// ================= Start-up =================
 buildAdds(); fillSettings();
-if (T.status === 'running') { if (remaining() <= 0) { T.status = 'idle'; T.left = 0; saveT(); render(); toast('Таймер закончился, пока приложение было закрыто'); } else { run(); wakeOn(); } }
+if (T.status === 'running') { if (remaining() <= 0) { T.status = 'idle'; T.left = 0; saveT(); render(); toast('The timer finished while the app was closed'); } else { run(); wakeOn(); } }
 else if (T.status === 'ringing') { T.status = 'idle'; saveT(); render(); }
 else render();
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});

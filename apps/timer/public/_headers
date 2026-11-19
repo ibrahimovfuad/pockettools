@@ -1,4 +1,4 @@
-# Запрещаем встроенные скрипты — так не появляется плашка Netlify
+# Disallow inline scripts — this also keeps the Netlify badge from being injected
 /
   Content-Security-Policy: script-src 'self'
 /index.html

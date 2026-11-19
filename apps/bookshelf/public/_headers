@@ -1,5 +1,5 @@
-# Запрещаем встроенные скрипты на страницах приложения — так не появляется плашка Netlify.
-# Google-адреса нужны для входа через Firebase, 'wasm-unsafe-eval' — для сканера штрихкодов.
+# Disallow inline scripts on app pages — this also keeps the Netlify badge from being injected.
+# Google hosts are needed for Firebase sign-in, 'wasm-unsafe-eval' for the barcode scanner.
 /
   Content-Security-Policy: script-src 'self' 'wasm-unsafe-eval' https://apis.google.com https://www.gstatic.com https://www.google.com
 /index.html

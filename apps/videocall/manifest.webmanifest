@@ -1,6 +1,6 @@
 {
-  "name": "Видеозвонок",
-  "short_name": "Звонок",
+  "name": "Video Call",
+  "short_name": "Call",
   "lang": "ru",
   "start_url": "./",
   "scope": "./",

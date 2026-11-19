@@ -1,6 +1,6 @@
 {
-  "name": "Полка",
-  "short_name": "Полка",
+  "name": "Bookshelf",
+  "short_name": "Bookshelf",
   "lang": "ru",
   "start_url": "/",
   "scope": "/",

@@ -1,5 +1,5 @@
-# Вход через Google: Firebase-помощник отдаётся с нашего же домена
+# Google sign-in: the Firebase auth helper is served from our own domain
 /__/auth/*      https://login-e91f7.firebaseapp.com/__/auth/:splat      200
 /__/firebase/*  https://login-e91f7.firebaseapp.com/__/firebase/:splat  200
-# Полка для друзей: /u/код открывает то же приложение в режиме просмотра
+# Shelf for friends: /u/<code> opens the same app in view-only mode
 /u/*            /index.html                                             200

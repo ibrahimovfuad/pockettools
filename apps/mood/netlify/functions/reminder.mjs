@@ -1,6 +1,6 @@
-// /api/reminder — настройки напоминания пользователя.
-// GET  → публичный VAPID-ключ.
-// POST (с Firebase ID-токеном) → get | save | rated | test
+// /api/reminder — the user's reminder settings.
+// GET  → public VAPID key.
+// POST (with a Firebase ID token) → get | save | rated | test
 import { getStore } from '@netlify/blobs';
 import { createRemoteJWKSet, jwtVerify } from 'jose';
 import { sendTo, REMINDER } from '../lib/push.mjs';
@@ -40,18 +40,18 @@ export default async (req) => {
       if (s && typeof s.endpoint === 'string' && s.endpoint.startsWith('https://') && s.keys && s.keys.p256dh && s.keys.auth) {
         cur.subs = (cur.subs || []).filter(x => x.endpoint !== s.endpoint)
           .concat([{ endpoint: s.endpoint, keys: { p256dh: s.keys.p256dh, auth: s.keys.auth } }])
-          .slice(-5);   // не больше 5 устройств
+          .slice(-5);   // at most 5 devices
       }
       await store.setJSON(uid, cur);
       return json({ ok: true, enabled: !!cur.enabled, hour: cur.hour });
     }
 
-    case 'rated':   // день оценён (или оценка удалена: date = null) — сегодня не напоминаем
+    case 'rated':   // day rated (or rating deleted: date = null) — no reminder today
       cur.lastRated = typeof body.date === 'string' ? body.date.slice(0, 10) : null;
       await store.setJSON(uid, cur);
       return json({ ok: true });
 
-    case 'test':    // проверочное уведомление прямо сейчас
+    case 'test':    // test notification right now
       cur.subs = await sendTo(cur.subs || [], REMINDER);
       await store.setJSON(uid, cur);
       return json({ ok: true, devices: cur.subs.length });

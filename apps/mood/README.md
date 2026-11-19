@@ -8,7 +8,7 @@ Rate your day from 0 to 10, add an optional note, and see how your mood changes 
 - **Statistics** — week / month / year views with averages, comparison with the previous period, best day and an interactive chart.
 - **Daily reminder** via Web Push at the hour you choose — skipped if the day is already rated.
 - **Offline-first** — ratings are saved on the device and synced to Firebase later.
-- Google sign-in, dark mode, installable PWA. UI language: Russian.
+- Google sign-in, dark mode, installable PWA.
 - **Demo mode** — with placeholder config the app runs without sign-in and keeps data on the device only.
 
 ## Stack

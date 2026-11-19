@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="ru">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
@@ -7,11 +7,11 @@
 <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Таймер">
+<meta name="apple-mobile-web-app-title" content="Timer">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png?v=1">
 <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=1">
-<title>Таймер</title>
+<title>Timer</title>
 <style>
 :root{
   color-scheme:light;
@@ -30,7 +30,7 @@
   }
 }
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
-/* никакого выделения текста и меню при долгом нажатии */
+/* no text selection or callout menu on long press */
 html,body{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
 input,select{-webkit-user-select:auto;user-select:auto}
 html{background:var(--bg)}
@@ -40,7 +40,7 @@ button{background:none;border:0;cursor:pointer;touch-action:manipulation}
 .hide{display:none!important}
 .wrap{max-width:520px;margin:0 auto;padding:calc(8px + env(safe-area-inset-top)) 16px calc(96px + env(safe-area-inset-bottom))}
 
-/* ---------- таймер ---------- */
+/* ---------- timer ---------- */
 #tab-timer .wrap{min-height:100vh;display:flex;flex-direction:column;justify-content:center;gap:clamp(18px,4vh,34px)}
 .dial{position:relative;width:min(78vw,300px);aspect-ratio:1;margin:0 auto}
 .dial>svg{position:absolute;inset:0;width:100%;height:100%;transform:rotate(-90deg)}
@@ -67,7 +67,7 @@ button{background:none;border:0;cursor:pointer;touch-action:manipulation}
 @keyframes ring{0%,100%{transform:scale(1)}50%{transform:scale(1.06)}}
 #goBtn.stop{animation:ring .9s infinite}
 
-/* ---------- настройки ---------- */
+/* ---------- settings ---------- */
 .lt{padding:14px 4px 6px}
 .lt h1{font-size:34px;line-height:1.15;font-weight:700;letter-spacing:.2px}
 .sect{font-size:13px;text-transform:uppercase;color:var(--text2);padding:22px 16px 7px;letter-spacing:.2px}
@@ -94,7 +94,7 @@ input[type=range]::-moz-range-thumb{width:28px;height:28px;border:0;border-radiu
 .try .add{width:64px;font-size:15px}
 .tryv{font-size:28px;font-weight:300;text-align:center;font-variant-numeric:tabular-nums}
 
-/* ---------- таб-бар ---------- */
+/* ---------- tab bar ---------- */
 #tabbar{position:fixed;left:0;right:0;bottom:0;display:flex;justify-content:space-around;padding:6px 8px calc(6px + env(safe-area-inset-bottom));background:var(--bar);-webkit-backdrop-filter:saturate(1.8) blur(20px);backdrop-filter:saturate(1.8) blur(20px);border-top:.5px solid var(--sep);z-index:10}
 #tabbar button{flex:1;max-width:140px;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:10px;font-weight:500;color:var(--text3);padding:2px 0}
 #tabbar button.on{color:var(--accent)}
@@ -102,6 +102,7 @@ input[type=range]::-moz-range-thumb{width:28px;height:28px;border:0;border-radiu
 #toast{position:fixed;left:50%;bottom:calc(92px + env(safe-area-inset-bottom));transform:translate(-50%,20px);opacity:0;background:rgba(40,40,42,.92);color:#fff;padding:10px 16px;border-radius:20px;font-size:15px;font-weight:500;transition:all .25s;pointer-events:none;z-index:20;white-space:nowrap}
 #toast.show{opacity:1;transform:translate(-50%,0)}
 .nf{display:block;margin-top:18px;font-size:12px;color:inherit;opacity:.55;text-align:center;text-decoration:none}
+.nf.src{margin-top:22px}.nf.tight{margin-top:6px}
 </style>
 </head>
 <body>
@@ -115,66 +116,67 @@ input[type=range]::-moz-range-thumb{width:28px;height:28px;border:0;border-radiu
       </svg>
       <div class="in">
         <div id="time" role="timer" aria-live="off">00:00</div>
-        <div id="state">Добавь время</div>
+        <div id="state">Add time</div>
         <div id="ends"></div>
       </div>
     </div>
     <div class="adds" id="adds"></div>
     <div class="ctl">
-      <button class="round" id="resetBtn">Сброс</button>
-      <button class="round" id="goBtn">Старт</button>
+      <button class="round" id="resetBtn">Reset</button>
+      <button class="round" id="goBtn">Start</button>
     </div>
   </div>
 </section>
 
 <section class="tab hide" id="tab-settings">
   <div class="wrap">
-    <header class="lt"><h1>Настройки</h1></header>
+    <header class="lt"><h1>Settings</h1></header>
 
-    <div class="sect">Кнопки</div>
+    <div class="sect">Buttons</div>
     <div class="list">
-      <label class="row"><span class="grow">Первая</span><select id="b0"></select></label>
-      <label class="row"><span class="grow">Вторая</span><select id="b1"></select></label>
-      <label class="row"><span class="grow">Третья</span><select id="b2"></select></label>
+      <label class="row"><span class="grow">First</span><select id="b0"></select></label>
+      <label class="row"><span class="grow">Second</span><select id="b1"></select></label>
+      <label class="row"><span class="grow">Third</span><select id="b2"></select></label>
     </div>
 
-    <div class="sect">Удержание кнопки</div>
+    <div class="sect">Press and hold</div>
     <div class="list">
-      <div class="row col"><div class="top"><span>Пауза до повтора</span><span class="val" id="delayV"></span></div><input type="range" id="delay" min="100" max="1000" step="50"></div>
-      <div class="row col"><div class="top"><span>Шаг повтора</span><span class="val" id="repV"></span></div><input type="range" id="rep" min="80" max="800" step="20"></div>
-      <div class="row col"><div class="top"><span>Ускорение</span><span class="val" id="accV"></span></div><input type="range" id="acc" min="0" max="50" step="5"></div>
-      <div class="row col"><div class="tryv" id="tryV">00:00</div><div class="try" id="tryBtns"></div><button class="row btn center" id="tryClear" style="min-height:36px;padding:4px">Очистить</button></div>
+      <div class="row col"><div class="top"><span>Delay before repeat</span><span class="val" id="delayV"></span></div><input type="range" id="delay" min="100" max="1000" step="50"></div>
+      <div class="row col"><div class="top"><span>Repeat interval</span><span class="val" id="repV"></span></div><input type="range" id="rep" min="80" max="800" step="20"></div>
+      <div class="row col"><div class="top"><span>Acceleration</span><span class="val" id="accV"></span></div><input type="range" id="acc" min="0" max="50" step="5"></div>
+      <div class="row col"><div class="tryv" id="tryV">00:00</div><div class="try" id="tryBtns"></div><button class="row btn center" id="tryClear" style="min-height:36px;padding:4px">Clear</button></div>
     </div>
-    <div class="foot">Зажми кнопку: сначала время добавится один раз, после паузы — шагами. Ускорение делает каждый следующий шаг быстрее. Попробуй прямо здесь.</div>
+    <div class="foot">Press and hold a button: time is added once, then repeatedly after the delay. Acceleration makes each next step faster. Try it right here.</div>
 
-    <div class="sect">Во время отсчёта</div>
+    <div class="sect">While counting down</div>
     <div class="list">
-      <label class="row"><span class="grow">Не гасить экран</span><input type="checkbox" class="switch" id="wake"></label>
+      <label class="row"><span class="grow">Keep screen on</span><input type="checkbox" class="switch" id="wake"></label>
     </div>
-    <div class="foot" id="wakeNote">Пока идёт таймер, экран не выключится. Работает на iOS 18.4 и новее.</div>
+    <div class="foot" id="wakeNote">The screen stays on while the timer runs. Requires iOS 18.4 or later on iPhone.</div>
 
-    <div class="sect">Сигнал</div>
+    <div class="sect">Alarm</div>
     <div class="list">
-      <label class="row"><span class="grow">Звук</span><input type="checkbox" class="switch" id="sound"></label>
-      <label class="row"><span class="grow">Звонить, пока не остановлю</span><input type="checkbox" class="switch" id="loop"></label>
-      <button class="row btn" id="testSound">Проверить звук</button>
+      <label class="row"><span class="grow">Sound</span><input type="checkbox" class="switch" id="sound"></label>
+      <label class="row"><span class="grow">Ring until I stop it</span><input type="checkbox" class="switch" id="loop"></label>
+      <button class="row btn" id="testSound">Test sound</button>
     </div>
-    <div class="foot">Звук играет, только когда приложение открыто, и не слышен в беззвучном режиме.</div>
+    <div class="foot">Sound plays only while the app is open and is muted in silent mode.</div>
 
     <div class="sect"></div>
-    <div class="list"><button class="row btn center" id="defaults">Вернуть настройки по умолчанию</button></div>
-    <a class="nf" href="https://www.netlify.com" target="_blank" rel="noopener">This site is powered by Netlify</a>
+    <div class="list"><button class="row btn center" id="defaults">Restore defaults</button></div>
+    <a class="nf src" href="https://github.com/ibrahimovfuad/pockettools" target="_blank" rel="noopener">Open source on GitHub</a>
+    <a class="nf tight" href="https://www.netlify.com" target="_blank" rel="noopener">This site is powered by Netlify</a>
   </div>
 </section>
 
 <nav id="tabbar">
   <button data-tab="timer" class="on">
     <svg viewBox="0 0 28 28" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="14" cy="15.5" r="9.5"/><path d="M14 15.5V10M11 3.5h6M21.5 7.5l1.8-1.8"/></svg>
-    Таймер
+    Timer
   </button>
   <button data-tab="settings">
     <svg viewBox="0 0 28 28" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 8h18M5 14h18M5 20h18"/><circle cx="10" cy="8" r="2.3" fill="var(--bg)"/><circle cx="18" cy="14" r="2.3" fill="var(--bg)"/><circle cx="12" cy="20" r="2.3" fill="var(--bg)"/></svg>
-    Настройки
+    Settings
   </button>
 </nav>
 <div id="toast"></div>

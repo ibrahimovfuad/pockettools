@@ -1,7 +1,7 @@
-// Офлайн-кэш. При изменении файлов увеличь номер версии.
-const CACHE = 'polka-v4';
+// Offline cache. Bump the version whenever files change.
+const CACHE = 'polka-v5';
 const COVERS = 'polka-covers';
-const FILES = ['/', '/index.html', '/app.js', '/config.js', '/manifest.webmanifest', '/icon-192.png', '/icon-512.png', '/apple-touch-icon.png', '/zxing_reader.wasm'];
+const FILES = ['/', '/index.html', '/app.js', '/onboarding.js', '/config.js', '/manifest.webmanifest', '/icon-192.png', '/icon-512.png', '/apple-touch-icon.png', '/zxing_reader.wasm'];
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(FILES)).then(() => self.skipWaiting()));
@@ -12,11 +12,11 @@ self.addEventListener('activate', e => {
     .then(() => self.clients.claim()));
 });
 
-// Файлы приложения: быстрый запуск из кэша + обновление в фоне.
-// Вход (/__/auth), поиск книг и Firebase идут мимо кэша.
+// App files: instant start from cache + background refresh.
+// Sign-in (/__/auth), book search and Firebase bypass the cache.
 self.addEventListener('fetch', e => {
   const url = new URL(e.request.url);
-  // обложки: один раз скачали — дальше показываем мгновенно из кэша
+  // covers: downloaded once, then shown instantly from cache
   if (e.request.destination === 'image' && e.request.mode === 'no-cors' && url.origin !== location.origin) {
     e.respondWith(caches.open(COVERS).then(async cache => {
       const hit = await cache.match(e.request);

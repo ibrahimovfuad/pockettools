@@ -9,7 +9,7 @@ A personal reading tracker: what you're reading, what's next and what you've fin
 - Reading statuses, dates, quotes and notes per book.
 - Import (flexible date formats) and export of your library.
 - **Share with friends** — an optional read-only link (`/u/<code>`) that opens your shelf without sign-in.
-- Google sign-in, Firebase sync, installable PWA. UI language: Russian.
+- Google sign-in, Firebase sync, installable PWA.
 
 ## Stack
 

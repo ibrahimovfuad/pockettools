@@ -1,4 +1,4 @@
-// Настройки Firebase (Project settings → General → Your apps → Web app → Config).
+// Firebase settings (Project settings → General → Your apps → Web app → Config).
 window.MOOD_CONFIG = {
   firebase: {
     apiKey: "AIzaSyAXeLwx80yEW7cLKkzu03BSM0kIGqSe3bg",

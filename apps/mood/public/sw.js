@@ -1,6 +1,6 @@
-// Офлайн-кэш и уведомления. При изменении файлов увеличь номер версии.
-const CACHE = 'mood-v3';
-const FILES = ['./', 'index.html', 'app.js', 'config.js', 'manifest.webmanifest', 'icon-192.png', 'icon-512.png', 'apple-touch-icon.png'];
+// Offline cache and notifications. Bump the version whenever files change.
+const CACHE = 'mood-v4';
+const FILES = ['./', 'index.html', 'app.js', 'onboarding.js', 'config.js', 'manifest.webmanifest', 'icon-192.png', 'icon-512.png', 'apple-touch-icon.png'];
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(FILES)).then(() => self.skipWaiting()));
@@ -11,8 +11,8 @@ self.addEventListener('activate', e => {
     .then(() => self.clients.claim()));
 });
 
-// Только файлы приложения: быстрый запуск из кэша + обновление в фоне.
-// Вход (/__/auth), API и Firebase идут мимо кэша.
+// App files only: instant start from cache + background refresh.
+// Sign-in (/__/auth), the API and Firebase bypass the cache.
 self.addEventListener('fetch', e => {
   const url = new URL(e.request.url);
   if (e.request.method !== 'GET' || url.origin !== location.origin) return;
@@ -28,8 +28,8 @@ self.addEventListener('fetch', e => {
 self.addEventListener('push', e => {
   let d = {};
   try { d = e.data ? e.data.json() : {}; } catch (x) {}
-  e.waitUntil(self.registration.showNotification(d.title || 'Как прошёл день?', {
-    body: d.body || 'Оцени его от 0 до 10 — займёт пару секунд.',
+  e.waitUntil(self.registration.showNotification(d.title || 'How was your day?', {
+    body: d.body || 'Rate it from 0 to 10 — it takes a couple of seconds.',
     icon: 'icon-192.png', badge: 'icon-192.png', tag: 'daily-mood', data: { url: d.url || './' }
   }));
 });

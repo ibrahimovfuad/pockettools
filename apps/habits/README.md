@@ -7,7 +7,7 @@ A habit tracker: tick off habits every day, keep streaks going and watch your pr
 - Daily or weekly habits with schedules — scheduled days off don't break a streak.
 - Streaks in days or weeks, history and per-habit detail view.
 - Google sign-in, data synced through Firebase Firestore.
-- Dark mode, installable PWA. UI language: Russian.
+- Dark mode, installable PWA.
 
 ## Stack
 

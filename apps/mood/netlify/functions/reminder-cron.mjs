@@ -1,4 +1,4 @@
-// Раз в час: всем, у кого сейчас наступил выбранный час и день ещё не оценён, отправляем напоминание.
+// Hourly: send a reminder to everyone whose chosen hour is now and whose day is not rated yet.
 import { getStore } from '@netlify/blobs';
 import { sendTo, localParts, REMINDER } from '../lib/push.mjs';
 

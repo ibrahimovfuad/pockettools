@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Pocket Tools — small open-source apps for everyday life</title>
+<meta name="description" content="A collection of small, open-source Progressive Web Apps: video calls, mood and habit tracking, a timer and a reading tracker. Free, no ads, MIT-licensed.">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<meta name="theme-color" content="#f2f2f7" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
+<style>
+:root{--bg:#f2f2f7;--card:#fff;--text:#1c1c1e;--text2:#6e6e73;--sep:rgba(60,60,67,.14);--accent:#2a78d6}
+@media (prefers-color-scheme:dark){:root{--bg:#000;--card:#1c1c1e;--text:#f5f5f7;--text2:#98989d;--sep:rgba(84,84,88,.5);--accent:#3987e5}}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font:17px/1.45 -apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,sans-serif;-webkit-font-smoothing:antialiased;padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom)}
+.wrap{max-width:680px;margin:0 auto;padding:56px 20px 40px}
+h1{font-size:40px;line-height:1.1;font-weight:700;letter-spacing:-.8px}
+.lead{color:var(--text2);font-size:19px;margin-top:12px;max-width:520px}
+.tags{display:flex;flex-wrap:wrap;gap:8px;margin-top:20px}
+.tags span{font-size:13px;font-weight:500;padding:5px 11px;border-radius:999px;background:var(--card);border:.5px solid var(--sep)}
+h2{font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:.6px;color:var(--text2);margin:44px 4px 10px}
+.list{background:var(--card);border-radius:16px;overflow:hidden}
+.app{display:flex;gap:16px;align-items:center;padding:16px;text-decoration:none;color:inherit;position:relative}
+.app+.app::before{content:"";position:absolute;top:0;left:84px;right:0;border-top:.5px solid var(--sep)}
+.app:hover{background:rgba(127,127,127,.06)}
+.app img{width:52px;height:52px;border-radius:12px;flex:none;box-shadow:0 2px 8px rgba(0,0,0,.08)}
+.app .t{flex:1;min-width:0}
+.app b{display:block;font-size:17px;font-weight:600}
+.app p{color:var(--text2);font-size:15px;line-height:1.35;margin-top:2px}
+.app .open{color:var(--accent);font-size:15px;font-weight:600;flex:none}
+.box{background:var(--card);border-radius:16px;padding:18px 20px}
+.box p+p{margin-top:10px}
+.box ol{margin:8px 0 0 20px}
+.box li+li{margin-top:4px}
+a{color:var(--accent)}
+code{font:14px ui-monospace,SFMono-Regular,Menlo,monospace;background:rgba(127,127,127,.12);padding:1px 5px;border-radius:5px}
+.btns{display:flex;flex-wrap:wrap;gap:10px;margin-top:24px}
+.btn{display:inline-flex;align-items:center;gap:8px;padding:11px 18px;border-radius:12px;font-weight:600;font-size:16px;text-decoration:none}
+.btn.primary{background:var(--text);color:var(--bg)}
+.btn.ghost{background:var(--card);color:var(--text);border:.5px solid var(--sep)}
+footer{margin-top:48px;text-align:center;font-size:13px;color:var(--text2)}
+footer a{color:inherit}
+footer p+p{margin-top:6px}
+</style>
+</head>
+<body>
+<main class="wrap">
+  <h1>Pocket Tools</h1>
+  <p class="lead">Small, open-source web apps for everyday life. Open one in your browser, add it to your home screen, and it works like a regular app — no app store, no ads, no tracking.</p>
+  <div class="tags"><span>No ads</span><span>No tracking</span><span>Open source · MIT</span><span>Installable PWAs</span><span>Free, non-commercial</span></div>
+  <div class="btns">
+    <a class="btn primary" href="https://github.com/ibrahimovfuad/pockettools">
+      <svg width="18" height="18" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+      Source on GitHub</a>
+    <a class="btn ghost" href="https://github.com/ibrahimovfuad/pockettools/blob/main/CHANGELOG.md">Changelog</a>
+  </div>
+
+  <h2>Apps</h2>
+  <div class="list">
+    <a class="app" href="https://moodlog2.netlify.app">
+      <img src="icons/mood.png" alt="">
+      <div class="t"><b>Mood</b><p>Rate your day from 0 to 10 in one tap. See weekly, monthly and yearly trends, and get a gentle daily reminder.</p></div>
+      <span class="open">Open</span>
+    </a>
+    <a class="app" href="https://habitslog2.netlify.app">
+      <img src="icons/habits.png" alt="">
+      <div class="t"><b>Habits</b><p>Tick off habits every day or week, keep streaks going and watch your progress grow.</p></div>
+      <span class="open">Open</span>
+    </a>
+    <a class="app" href="https://shelff2.netlify.app">
+      <img src="icons/bookshelf.png" alt="">
+      <div class="t"><b>Bookshelf</b><p>Track what you're reading, what's next and what you've finished. Add books by scanning the barcode, save quotes, share your shelf.</p></div>
+      <span class="open">Open</span>
+    </a>
+    <a class="app" href="https://timerr2.netlify.app">
+      <img src="icons/timer.png" alt="">
+      <div class="t"><b>Timer</b><p>A one-handed countdown timer: press and hold a button to add time. Works offline, no sign-in.</p></div>
+      <span class="open">Open</span>
+    </a>
+    <a class="app" href="https://facetime2.netlify.app">
+      <img src="icons/videocall.png" alt="">
+      <div class="t"><b>Video Call</b><p>One-to-one HD video calls over a permanent link. Peer-to-peer, no account needed.</p></div>
+      <span class="open">Open</span>
+    </a>
+  </div>
+
+  <h2>Run your own copy</h2>
+  <div class="box">
+    <p>Every app is a small, readable project you can deploy to your own account in a few minutes:</p>
+    <ol>
+      <li>Fork <a href="https://github.com/ibrahimovfuad/pockettools">the repository</a>.</li>
+      <li>In Netlify, import your fork and set <b>Base directory</b> to the app folder, e.g. <code>apps/timer</code>.</li>
+      <li>Follow the app's README for any extra setup (Firebase, push keys).</li>
+    </ol>
+  </div>
+
+  <h2>Contribute</h2>
+  <div class="box">
+    <p>Found a bug or have an idea? <a href="https://github.com/ibrahimovfuad/pockettools/issues/new/choose">Open an issue</a>. Pull requests are welcome — see the <a href="https://github.com/ibrahimovfuad/pockettools/blob/main/CONTRIBUTING.md">contributing guide</a> and <a href="https://github.com/ibrahimovfuad/pockettools/blob/main/CODE_OF_CONDUCT.md">Code of Conduct</a>.</p>
+  </div>
+
+  <footer>
+    <p>All apps are completely ad-free: no ads, no trackers, no paid features.</p>
+    <p>Pocket Tools is free and open source under the <a href="https://github.com/ibrahimovfuad/pockettools/blob/main/LICENSE">MIT License</a>.</p>
+    <p><a href="https://www.netlify.com">This site is powered by Netlify</a></p>
+  </footer>
+</main>
+</body>
+</html>

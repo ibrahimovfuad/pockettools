@@ -1,5 +1,5 @@
-// Офлайн-кэш оболочки приложения. При изменении файлов увеличь номер версии.
-const CACHE = 'videocall-v4';
+// Offline cache of the app shell. Bump the version whenever files change.
+const CACHE = 'videocall-v5';
 const FILES = ['./', 'index.html', 'app.js', 'peerjs.min.js', 'manifest.webmanifest',
   'icon-192.png', 'icon-512.png', 'apple-touch-icon.png'];
 
@@ -13,7 +13,7 @@ self.addEventListener('activate', e => {
     .then(() => self.clients.claim()));
 });
 
-// Сначала отдаём из кэша (мгновенный запуск), параллельно обновляем кэш из сети
+// Serve from cache first (instant start) and refresh the cache from the network in parallel
 self.addEventListener('fetch', e => {
   const req = e.request;
   if (req.method !== 'GET' || new URL(req.url).origin !== location.origin) return;

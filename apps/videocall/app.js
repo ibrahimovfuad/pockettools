@@ -1,7 +1,7 @@
-// ===== Настройки =====
-const TURN_URL = '';      // ссылка на TURN из кабинета Metered (необязательно)
-const VIDEO_KBPS = 1500;  // качество при хорошей связи, кбит/с (при плохой снижается автоматически)
-const AUDIO_KBPS = 64;    // потолок звука, кбит/с
+// ===== Settings =====
+const TURN_URL = '';      // TURN server URL, e.g. from Metered (optional)
+const VIDEO_KBPS = 1500;  // video bitrate on a good connection, kbit/s (lowered automatically on a bad one)
+const AUDIO_KBPS = 64;    // audio bitrate cap, kbit/s
 
 const $ = id => document.getElementById(id);
 const body = document.body, pip = $('pip');
@@ -14,7 +14,7 @@ const hint = t => $('hint').textContent = t;
 const linkOf = r => location.origin + location.pathname + '#' + r;
 addEventListener('hashchange', () => location.reload());
 
-// ===== Постоянная ссылка: хранится на этом устройстве =====
+// ===== Permanent link: stored on this device =====
 function newRoomId() {
   const a = 'abcdefghjkmnpqrstuvwxyz23456789';
   let s = 'call-';
@@ -30,26 +30,26 @@ function myRoom(fresh) {
 
 function home(fresh) {
   const r = myRoom(fresh);
-  $('title').textContent = 'Видеозвонок';
-  say('Твоя постоянная ссылка:');
+  $('title').textContent = 'Video Call';
+  say('Your permanent link:');
   hint(linkOf(r).replace(/^https?:\/\//, ''));
-  setMain('Начать звонок', () => { room = r; history.replaceState(null, '', '#' + r); hint(''); setNew(''); $('install').classList.add('hide'); start(); });
-  setAlt('Отправить ссылку', () => share(r));
-  setNew('Создать новую ссылку', () => { if (confirmNew()) home(true); });
+  setMain('Start call', () => { room = r; history.replaceState(null, '', '#' + r); hint(''); setNew(''); $('install').classList.add('hide'); start(); });
+  setAlt('Send link', () => share(r));
+  setNew('Create a new link', () => { if (confirmNew()) home(true); });
 }
 function confirmNew() {
   const b = $('newBtn');
   if (b.dataset.sure) return true;
-  b.dataset.sure = 1; b.textContent = 'Старая ссылка перестанет работать. Нажми ещё раз';
-  setTimeout(() => { delete b.dataset.sure; if (!b.classList.contains('hide')) b.textContent = 'Создать новую ссылку'; }, 4000);
+  b.dataset.sure = 1; b.textContent = 'The old link will stop working. Tap again';
+  setTimeout(() => { delete b.dataset.sure; if (!b.classList.contains('hide')) b.textContent = 'Create a new link'; }, 4000);
   return false;
 }
 
 if (room) { try { localStorage.setItem('room', room); } catch (e) {} }
-if (room) { say('Постоянная ссылка для звонка'); setMain('Подключиться', start); setAlt(''); setNew(''); }
+if (room) { say('Permanent call link'); setMain('Join', start); setAlt(''); setNew(''); }
 else home();
 
-// ===== Кнопки внизу =====
+// ===== Bottom buttons =====
 function setMain(text, fn) {
   const b = $('mainBtn');
   b.innerHTML = text ? CAM_ICON + '<span></span>' : '';
@@ -62,11 +62,11 @@ function setNew(text, fn) { const b = $('newBtn'); delete b.dataset.sure; b.text
 
 function share(r) {
   const url = linkOf(r);
-  if (navigator.share) navigator.share({ title:'Видеозвонок', url }).catch(() => {});
-  else navigator.clipboard.writeText(url).then(() => say('Ссылка скопирована'), () => say(url));
+  if (navigator.share) navigator.share({ title:'Video Call', url }).catch(() => {});
+  else navigator.clipboard.writeText(url).then(() => say('Link copied'), () => say(url));
 }
 
-// ===== Камера =====
+// ===== Camera =====
 function getMedia(video = true, audio = true) {
   return navigator.mediaDevices.getUserMedia({
     video: video && { width:{ideal:1280}, height:{ideal:720}, frameRate:{ideal:30,max:30}, facingMode:facing },
@@ -81,9 +81,9 @@ function showLocal() {
 
 async function start() {
   setMain(''); setAlt('');
-  say('Включаю камеру…');
+  say('Turning on the camera…');
   try { stream = await getMedia(); }
-  catch (e) { say('Нет доступа к камере или микрофону'); return setMain('Попробовать снова', start); }
+  catch (e) { say('No access to the camera or microphone'); return setMain('Try again', start); }
   showLocal();
   navigator.mediaDevices.enumerateDevices().then(d => {
     if (d.filter(x => x.kind === 'videoinput').length < 2) $('flipBtn').classList.add('hide');
@@ -94,17 +94,17 @@ async function start() {
   join();
 }
 
-// ===== Комната: кто пришёл первым — ждёт, второй — звонит ему =====
+// ===== Room: whoever comes first waits, the second one calls them =====
 function join() {
   setMain(''); setAlt('');
-  say('Подключаюсь…');
+  say('Connecting…');
   if (peer) peer.destroy();
   isHost = false;
-  const p = peer = new Peer(room, { config:{ iceServers } });   // пытаемся занять комнату
-  p.on('open', () => { isHost = true; idle('Жду собеседника…'); });
-  p.on('call', c => { if (call) call.close(); say('Соединяю…'); c.answer(stream); preferH264(c.peerConnection); watch(c); });
+  const p = peer = new Peer(room, { config:{ iceServers } });   // try to claim the room
+  p.on('open', () => { isHost = true; idle('Waiting for the other person…'); });
+  p.on('call', c => { if (call) call.close(); say('Connecting the call…'); c.answer(stream); preferH264(c.peerConnection); watch(c); });
   p.on('error', e => {
-    if (e.type === 'unavailable-id') { p.destroy(); asGuest(); }   // комната занята → там уже ждут
+    if (e.type === 'unavailable-id') { p.destroy(); asGuest(); }   // room is taken → someone is already waiting there
     else netError(e);
   });
   p.on('disconnected', () => setTimeout(() => peer === p && !p.destroyed && p.reconnect(), 2000));
@@ -114,34 +114,34 @@ function asGuest() {
   const p = peer = new Peer({ config:{ iceServers } });
   p.on('open', dial);
   p.on('error', e => {
-    if (e.type === 'peer-unavailable') { say('Переподключаюсь…'); setTimeout(() => peer === p && join(), 2000); }
+    if (e.type === 'peer-unavailable') { say('Reconnecting…'); setTimeout(() => peer === p && join(), 2000); }
     else netError(e);
   });
   p.on('disconnected', () => setTimeout(() => peer === p && !p.destroyed && p.reconnect(), 2000));
 }
 
 function netError(e) {
-  if (e.type === 'network' || e.type === 'server-error' || e.type === 'socket-error' || e.type === 'socket-closed') say('Нет интернета, пробую ещё…');
-  else say('Ошибка: ' + e.type);
-  if (!call) setMain('Подключиться снова', join);
+  if (e.type === 'network' || e.type === 'server-error' || e.type === 'socket-error' || e.type === 'socket-closed') say('No internet connection, retrying…');
+  else say('Error: ' + e.type);
+  if (!call) setMain('Reconnect', join);
 }
 
-// Экран, когда звонка нет
+// Screen shown when there is no call
 function idle(msg) {
   say(msg);
-  if (isHost) { setMain(''); setAlt('Отправить ссылку', () => share(room)); }
-  else { setMain('Подключиться снова', join); setAlt(''); }
+  if (isHost) { setMain(''); setAlt('Send link', () => share(room)); }
+  else { setMain('Reconnect', join); setAlt(''); }
 }
 
 function dial() {
-  say('Звоню…');
+  say('Calling…');
   const c = peer.call(room, stream);
   preferH264(c.peerConnection);
   watch(c);
   setTimeout(() => {
     if (call === c && !body.classList.contains('incall')) {
       call = null; c.close();
-      idle('Не удаётся соединиться. Похоже, сеть блокирует прямое подключение');
+      idle("Can't connect. The network seems to block direct connections");
     }
   }, 25000);
 }
@@ -152,8 +152,8 @@ function watch(c) {
   if (pc) pc.addEventListener('iceconnectionstatechange', () => {
     const st = pc.iceConnectionState;
     if (!body.classList.contains('incall')) {
-      if (st === 'checking') say('Соединяю…');
-      if (st === 'failed' && call === c) { call = null; idle('Не удаётся соединиться. Похоже, сеть блокирует прямое подключение'); }
+      if (st === 'checking') say('Connecting the call…');
+      if (st === 'failed' && call === c) { call = null; idle("Can't connect. The network seems to block direct connections"); }
       return;
     }
     weak = st === 'disconnected';
@@ -170,15 +170,15 @@ function watch(c) {
   c.on('error', () => ended(c));
 }
 
-// ===== Адаптивное качество =====
-// Каждые 2 секунды смотрим статистику связи. Плохо → быстро спускаемся на ступень ниже,
-// стабильно хорошо → осторожно поднимаемся обратно. Каждая сторона управляет своим исходящим видео.
+// ===== Adaptive quality =====
+// Every 2 seconds we check connection stats. Bad → quickly step down one level,
+// consistently good → carefully step back up. Each side controls its own outgoing video.
 const LADDER = [
   { kbps: VIDEO_KBPS,                     scale: 1,   fps: 30 },  // HD
   { kbps: Math.round(VIDEO_KBPS * 0.6),   scale: 1,   fps: 30 },
   { kbps: Math.round(VIDEO_KBPS * 0.35),  scale: 1.5, fps: 25 },
   { kbps: Math.round(VIDEO_KBPS * 0.2),   scale: 2,   fps: 20 },
-  { kbps: Math.round(VIDEO_KBPS * 0.1),   scale: 3,   fps: 15 },  // самый экономный
+  { kbps: Math.round(VIDEO_KBPS * 0.1),   scale: 3,   fps: 15 },  // most economical
 ];
 let level = 1, statsId = null, goodRun = 0, cpuRun = 0, started = 0, upNeed = 5, lastUp = 0, lastDown = 0, prev = null;
 
@@ -195,7 +195,7 @@ async function setVideo(pc, i) {
     if (!p.encodings || !p.encodings.length) return;
     Object.assign(p.encodings[0], { maxBitrate: L.kbps * 1000, scaleResolutionDownBy: L.scale, maxFramerate: L.fps });
     await s.setParameters(p);
-  } catch (e) {                        // старый Safari может не знать часть полей — ставим хотя бы битрейт
+  } catch (e) {                        // older Safari may not support some fields — set at least the bitrate
     try { const q = s.getParameters(); q.encodings[0].maxBitrate = L.kbps * 1000; await s.setParameters(q); } catch (e2) {}
   }
 }
@@ -203,7 +203,7 @@ async function setVideo(pc, i) {
 async function setAudio(pc) {
   const s = senderOf(pc, 'audio');
   if (!s) return;
-  try {                                // голос важнее картинки: высокий приоритет в сети
+  try {                                // voice matters more than video: high network priority
     const p = s.getParameters();
     if (!p.encodings || !p.encodings.length) return;
     Object.assign(p.encodings[0], { maxBitrate: AUDIO_KBPS * 1000, priority: 'high', networkPriority: 'high' });
@@ -237,7 +237,7 @@ async function sample(pc) {
   prev = { sent, lost };
 
   const now = Date.now(), cur = LADDER[level];
-  cpuRun = qlr === 'cpu' ? cpuRun + 1 : 0;              // телефон не успевает кодировать
+  cpuRun = qlr === 'cpu' ? cpuRun + 1 : 0;              // the phone cannot keep up with encoding
   const bad = (loss != null && loss > 0.06) || (rtt != null && rtt > 0.5) ||
               (avail != null && now - started > 8000 && avail < cur.kbps * 1000 * 0.7) || cpuRun >= 3;
 
@@ -245,7 +245,7 @@ async function sample(pc) {
     goodRun = 0;
     const severe = (loss != null && loss > 0.15) || (rtt != null && rtt > 1);
     if (level < LADDER.length - 1 && (severe || now - lastDown > 3000)) {
-      if (now - lastUp < 20000) { upNeed = Math.min(upNeed * 2, 15); lastUp = 0; }   // только поднялись и снова плохо → дольше ждать
+      if (now - lastUp < 20000) { upNeed = Math.min(upNeed * 2, 15); lastUp = 0; }   // just stepped up and it got bad again → wait longer
       level++; lastDown = now; cpuRun = 0;
       setVideo(pc, level); tick();
     }
@@ -260,7 +260,7 @@ async function sample(pc) {
   }
 }
 
-// H.264 кодируется «железом» почти на всех телефонах (и на iPhone 7) — меньше нагрев и подвисаний
+// H.264 is hardware-encoded on almost every phone (including iPhone 7) — less heat and fewer stalls
 function preferH264(pc) {
   try {
     if (!pc || !window.RTCRtpSender || !RTCRtpSender.getCapabilities) return;
@@ -276,7 +276,7 @@ function preferH264(pc) {
   } catch (e) {}
 }
 
-// ===== Состояние звонка =====
+// ===== Call state =====
 function enterCall() {
   if (body.classList.contains('incall')) return;
   setMain(''); setAlt('');
@@ -291,7 +291,7 @@ function tick() {
   if (!body.classList.contains('incall')) return;
   const s = Math.floor((Date.now() - t0) / 1000);
   const time = String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0');
-  say(weak ? 'Плохая связь, жду…' : time + (level >= 3 ? ' · слабая связь' : ''));
+  say(weak ? 'Poor connection, waiting…' : time + (level >= 3 ? ' · weak connection' : ''));
 }
 
 function ended(c) {
@@ -301,10 +301,10 @@ function ended(c) {
   body.classList.remove('incall', 'idle');
   pip.style.left = pip.style.top = '';
   $('remote').srcObject = null;
-  idle(isHost ? 'Звонок завершён. Жду собеседника…' : 'Звонок завершён');
+  idle(isHost ? 'Call ended. Waiting for the other person…' : 'Call ended');
 }
 
-// Кнопки прячутся через 4 секунды, тап по экрану — показывает
+// Controls hide after 4 seconds; tap the screen to show them
 function wake() {
   body.classList.remove('idle');
   clearTimeout(hideId);
@@ -313,7 +313,7 @@ function wake() {
 $('remote').addEventListener('click', () => body.classList.contains('idle') ? wake() : (clearTimeout(hideId), body.classList.add('idle')));
 $('controls').addEventListener('click', wake);
 
-// ===== Кнопки звонка =====
+// ===== Call buttons =====
 function toggle(kind, btn) {
   const t = stream && stream.getTracks().find(t => t.kind === kind);
   if (!t) return;
@@ -329,7 +329,7 @@ $('flipBtn').onclick = async () => {
   const old = stream && stream.getVideoTracks()[0];
   if (!old) return;
   const wasOn = old.enabled;
-  old.stop(); stream.removeTrack(old);          // iOS не даёт открыть две камеры сразу
+  old.stop(); stream.removeTrack(old);          // iOS does not allow two cameras at once
   facing = facing === 'user' ? 'environment' : 'user';
   let nt;
   try { nt = (await getMedia(true, false)).getVideoTracks()[0]; }
@@ -345,7 +345,7 @@ $('flipBtn').onclick = async () => {
   if (tr) tr.sender.replaceTrack(nt).catch(() => {});
 };
 
-// ===== Окошко своего видео: перетаскивание с прилипанием к углу =====
+// ===== Own video window: drag and snap to a corner =====
 function pipSize() { const w = Math.min(innerWidth * 0.3, 140); return { w, h: w * 4 / 3 }; }
 function safe() { const s = getComputedStyle($('safe')); return { t: parseFloat(s.paddingTop) || 0, b: parseFloat(s.paddingBottom) || 0 }; }
 function placePip() {
@@ -376,7 +376,7 @@ pip.addEventListener('pointerup', drop);
 pip.addEventListener('pointercancel', drop);
 addEventListener('resize', () => body.classList.contains('incall') && placePip());
 
-// ===== Приложение (PWA) =====
+// ===== Installable app (PWA) =====
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
 
 const standalone = matchMedia('(display-mode: standalone)').matches || navigator.standalone;
@@ -389,10 +389,10 @@ function showInstall() {
   const box = $('install');
   if (standalone || room) return box.classList.add('hide');
   if (installEvt) {
-    box.innerHTML = '<button>Установить приложение</button>';
+    box.innerHTML = '<button>Install app</button>';
     box.firstChild.onclick = () => { installEvt.prompt(); installEvt.userChoice.finally(() => { installEvt = null; box.classList.add('hide'); }); };
   } else if (isIOS) {
-    box.textContent = 'Чтобы установить: «Поделиться» → «На экран Домой»';
+    box.textContent = 'To install: Share → Add to Home Screen';
   } else return box.classList.add('hide');
   box.classList.remove('hide');
 }

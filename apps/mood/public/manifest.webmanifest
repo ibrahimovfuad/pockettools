@@ -1,6 +1,6 @@
 {
-  "name": "Настроение",
-  "short_name": "Настроение",
+  "name": "Mood",
+  "short_name": "Mood",
   "lang": "ru",
   "start_url": "./",
   "scope": "./",

@@ -1,6 +1,6 @@
 {
-  "name": "Таймер",
-  "short_name": "Таймер",
+  "name": "Timer",
+  "short_name": "Timer",
   "lang": "ru",
   "start_url": "./",
   "scope": "./",

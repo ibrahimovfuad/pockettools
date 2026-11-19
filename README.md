@@ -2,7 +2,9 @@
 
 A collection of small, open-source **Progressive Web Apps** for everyday life — lightweight helpers that install to your home screen, work offline where possible, and need no app store.
 
-Every app lives in its own folder under [`apps/`](apps/) and is deployed as an independent site on [Netlify](https://www.netlify.com). You are welcome to use them, fork them, deploy your own copy, or borrow pieces for your own projects.
+Every app lives in its own folder under [`apps/`](apps/) and is deployed as an independent site on [Netlify](https://www.netlify.com).
+
+**Homepage:** a short overview of all apps lives in [`site/`](site/). You are welcome to use them, fork them, deploy your own copy, or borrow pieces for your own projects.
 
 ## Apps
 
@@ -14,7 +16,7 @@ Every app lives in its own folder under [`apps/`](apps/) and is deployed as an i
 | [Timer](apps/timer) | One-handed countdown timer with press-and-hold buttons | HTML/JS, offline |
 | [Bookshelf](apps/bookshelf) | Reading tracker with barcode scanning, quotes and a shareable shelf | JS, Firebase, zxing-wasm |
 
-Each app folder has its own `README.md` with features, setup steps and deployment notes. The apps' interface is currently in Russian; translations are welcome.
+Each app folder has its own `README.md` with features, setup steps and deployment notes.
 
 ## Why
 
@@ -24,7 +26,7 @@ These tools started as personal helpers. They are published openly so that anyon
 - **Self-host them** — every app can be deployed to your own Netlify account in a few minutes.
 - **Learn from them** — the apps are deliberately small and readable: WebRTC calls, Web Push reminders, service workers, offline caching and installable PWAs with minimal or no build tooling.
 
-The project is non-commercial: there are no ads, no tracking, no paid tiers and no hosted service for sale.
+The project is non-commercial and **ad-free**: no ads, no tracking, no paid tiers and no hosted service for sale.
 
 ## Repository layout
 
@@ -37,6 +39,7 @@ apps/
   _template/          starting point for a new app
 firebase/
   firestore.rules     security rules shared by the Firebase-based apps
+site/                 project homepage (its own Netlify site, base directory `site`)
 ```
 
 ## Deploy your own copy
