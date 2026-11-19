@@ -525,6 +525,13 @@ if ('serviceWorker' in navigator) {
       if (updatePending) applyUpdate(); else reg.update().catch(() => {});
     });
   }).catch(() => {});
+  // show the running version (the service worker's cache name, e.g. "mood-v7" → "v7") at the bottom of the app
+  navigator.serviceWorker.ready.then(reg => {
+    if (!reg.active) return;
+    const ch = new MessageChannel();
+    ch.port1.onmessage = e => { const v = String(e.data || '').replace(/^.*-(v\d+)$/, '$1'); if (v) document.documentElement.style.setProperty('--app-ver', JSON.stringify(v)); };
+    reg.active.postMessage('version', [ch.port2]);
+  }).catch(() => {});
 }
 
 // start-up, at the very end once everything is declared

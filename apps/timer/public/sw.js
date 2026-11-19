@@ -1,5 +1,5 @@
 // Offline cache. Bump the version whenever files change.
-const CACHE = 'timer-v5';
+const CACHE = 'timer-v6';
 const FILES = ['./', 'index.html', 'app.js', 'manifest.webmanifest', 'icon-192.png', 'icon-512.png', 'apple-touch-icon.png'];
 self.addEventListener('install', e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(FILES)).then(() => self.skipWaiting())); });
 self.addEventListener('activate', e => { e.waitUntil(caches.keys().then(k => Promise.all(k.filter(x => x !== CACHE).map(x => caches.delete(x)))).then(() => self.clients.claim())); });
@@ -17,3 +17,6 @@ function networkFirst(cache, req, key = req) {
   const slow = new Promise(res => setTimeout(res, 4000)).then(fromCache).then(c => c || net);
   return Promise.race([net, slow]).catch(() => fromCache().then(c => c || Response.error()));
 }
+
+// the page asks for the running version to show it at the bottom of the app
+self.addEventListener('message', e => { if (e.data === 'version' && e.ports[0]) e.ports[0].postMessage(CACHE); });

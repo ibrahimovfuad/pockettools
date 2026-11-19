@@ -1,5 +1,5 @@
 // Offline cache. Bump the version whenever files change.
-const CACHE = 'habits-v9';
+const CACHE = 'habits-v10';
 const FILES = ['./', 'index.html', 'app.js', 'onboarding.js', 'config.js', 'manifest.webmanifest', 'icon-192.png', 'icon-512.png', 'apple-touch-icon.png'];
 
 self.addEventListener('install', e => {
@@ -29,3 +29,6 @@ function networkFirst(cache, req, key = req) {
   const slow = new Promise(res => setTimeout(res, 4000)).then(fromCache).then(c => c || net);
   return Promise.race([net, slow]).catch(() => fromCache().then(c => c || Response.error()));
 }
+
+// the page asks for the running version to show it at the bottom of the app
+self.addEventListener('message', e => { if (e.data === 'version' && e.ports[0]) e.ports[0].postMessage(CACHE); });

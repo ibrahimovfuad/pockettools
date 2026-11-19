@@ -527,7 +527,8 @@ function profileHTML() {
     </div>
     ${DEMO ? '<div class="foot">Demo mode: data is stored on this device only.</div>' : ''}
     <div class="grp" style="margin-top:22px"><button class="gi danger center" data-act="signout">Sign out</button></div>
-    <a class="nf src" href="https://github.com/ibrahimovfuad/pockettools" target="_blank" rel="noopener">Open source on GitHub</a>`;
+    <a class="nf src" href="https://github.com/ibrahimovfuad/pockettools" target="_blank" rel="noopener">Open source on GitHub</a>
+    <div class="app-ver"></div>`;
 }
 
 // ===================== Actions =====================
@@ -1267,6 +1268,13 @@ if ('serviceWorker' in navigator) {
       if (document.visibilityState !== 'visible') return;
       if (updatePending) applyUpdate(); else reg.update().catch(() => {});
     });
+  }).catch(() => {});
+  // show the running version (the service worker's cache name, e.g. "mood-v7" → "v7") at the bottom of the app
+  navigator.serviceWorker.ready.then(reg => {
+    if (!reg.active) return;
+    const ch = new MessageChannel();
+    ch.port1.onmessage = e => { const v = String(e.data || '').replace(/^.*-(v\d+)$/, '$1'); if (v) document.documentElement.style.setProperty('--app-ver', JSON.stringify(v)); };
+    reg.active.postMessage('version', [ch.port2]);
   }).catch(() => {});
 }
 start();

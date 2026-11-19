@@ -84,13 +84,17 @@ html,body{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;-
 a,input,textarea,select,[contenteditable]{-webkit-user-select:text;user-select:text}
 a{-webkit-touch-callout:default}
 html{touch-action:manipulation}
+/* app version (filled from the running service worker, see the end of the main script) */
+.app-ver{pointer-events:auto;font-size:11px;color:var(--text3,inherit);opacity:.8;text-align:center;margin-top:6px;font-variant-numeric:tabular-nums}
+.app-ver::after{content:var(--app-ver,'')}
+body.incall .app-ver{display:none}
 </style>
 </head>
 <body>
 <video id="remote" playsinline autoplay></video>
 <div id="pip"><video id="local" class="mirror" playsinline autoplay muted></video></div>
 
-<div id="top"><div id="title">Video Call</div><div id="sub"></div><div id="hint"></div><a class="nf vc" href="https://github.com/ibrahimovfuad/pockettools" target="_blank" rel="noopener">Open source on GitHub</a><a class="nf vc tight" href="https://www.netlify.com" target="_blank" rel="noopener">This site is powered by Netlify</a></div>
+<div id="top"><div id="title">Video Call</div><div id="sub"></div><div id="hint"></div><a class="nf vc" href="https://github.com/ibrahimovfuad/pockettools" target="_blank" rel="noopener">Open source on GitHub</a><a class="nf vc tight" href="https://www.netlify.com" target="_blank" rel="noopener">This site is powered by Netlify</a><div class="app-ver"></div></div>
 
 <div id="pre"><button id="mainBtn"></button><button id="altBtn" class="hide"></button><button id="newBtn" class="hide"></button><div id="install" class="hide"></div></div>
 

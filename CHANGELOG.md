@@ -13,6 +13,7 @@ All notable changes to Pocket Tools are listed here, newest first.
 - Bookshelf: closing a card no longer leaves its top edge visible under the tab bar in the installed iOS app.
 
 ### Added
+- Every app shows its version (e.g. “v7”) at the bottom of the sign-in/settings screen, so it is easy to see whether an update has arrived.
 - Project homepage (`site/`) with a short description of every app.
 - Onboarding screens before sign-in in Mood, Habits and Bookshelf.
 - "This site is powered by Netlify" and source-code links in every app.
