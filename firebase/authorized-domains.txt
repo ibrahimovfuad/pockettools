@@ -1,0 +1,6 @@
+# Domains allowed to use Firebase sign-in (Authentication → Settings → Authorized domains).
+# One domain per line. A push to main that changes this file ADDS any missing domain
+# (.github/workflows/firebase-auth-domains.yml). It never removes domains — do that by hand.
+moodlog2.netlify.app
+habitslog2.netlify.app
+shelff2.netlify.app
