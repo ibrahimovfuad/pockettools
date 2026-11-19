@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<meta name="theme-color" content="#f2f2f7" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Таймер">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png?v=1">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=1">
+<title>Таймер</title>
+<style>
+:root{
+  color-scheme:light;
+  --bg:#f2f2f7; --card:#fff; --text:#0b0b0b; --text2:#6c6c70; --text3:#a1a1a6;
+  --sep:rgba(60,60,67,.16); --fill:rgba(118,118,128,.12); --track:#e5e5ea;
+  --accent:#2a78d6; --go:#2fa84f; --go-bg:rgba(47,168,79,.16); --pause:#e08a00; --pause-bg:rgba(224,138,0,.16);
+  --stop:#d03b3b; --stop-bg:rgba(208,59,59,.14); --bar:rgba(249,249,249,.86);
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    color-scheme:dark;
+    --bg:#000; --card:#1c1c1e; --text:#f2f2f7; --text2:#98989f; --text3:#636366;
+    --sep:rgba(84,84,88,.55); --fill:rgba(118,118,128,.24); --track:#2c2c2e;
+    --accent:#3987e5; --go:#34c759; --go-bg:rgba(52,199,89,.2); --pause:#ff9f0a; --pause-bg:rgba(255,159,10,.2);
+    --stop:#ff453a; --stop-bg:rgba(255,69,58,.2); --bar:rgba(22,22,23,.86);
+  }
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+/* никакого выделения текста и меню при долгом нажатии */
+html,body{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+input,select{-webkit-user-select:auto;user-select:auto}
+html{background:var(--bg)}
+body{min-height:100vh;background:var(--bg);color:var(--text);font:17px/1.35 -apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,sans-serif;-webkit-font-smoothing:antialiased;overscroll-behavior:none;touch-action:manipulation}
+button,select,input{font:inherit;color:inherit}
+button{background:none;border:0;cursor:pointer;touch-action:manipulation}
+.hide{display:none!important}
+.wrap{max-width:520px;margin:0 auto;padding:calc(8px + env(safe-area-inset-top)) 16px calc(96px + env(safe-area-inset-bottom))}
+
+/* ---------- таймер ---------- */
+#tab-timer .wrap{min-height:100vh;display:flex;flex-direction:column;justify-content:center;gap:clamp(18px,4vh,34px)}
+.dial{position:relative;width:min(78vw,300px);aspect-ratio:1;margin:0 auto}
+.dial>svg{position:absolute;inset:0;width:100%;height:100%;transform:rotate(-90deg)}
+.dial .in{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
+#time{font-size:clamp(52px,17vw,72px);font-weight:300;font-variant-numeric:tabular-nums;letter-spacing:-1px;line-height:1;transition:transform .1s}
+#time.bump{transform:scale(1.05)}
+#time.long{font-size:clamp(42px,13vw,58px)}
+#state{font-size:15px;color:var(--text2);margin-top:10px;min-height:1.3em;text-align:center}
+#ends{font-size:13px;color:var(--text3);margin-top:4px;min-height:1.2em;display:flex;align-items:center;gap:4px}
+#ends svg{width:13px;height:13px}
+.adds{display:flex;justify-content:center;gap:clamp(12px,5vw,22px)}
+.add{width:clamp(76px,22vw,88px);aspect-ratio:1;border-radius:50%;background:var(--card);font-size:19px;font-weight:600;font-variant-numeric:tabular-nums;box-shadow:0 0 0 .5px var(--sep);transition:transform .08s,background .12s}
+.add.on{transform:scale(.92);background:color-mix(in srgb,var(--accent) 16%,var(--card));color:var(--accent)}
+.ctl{display:flex;justify-content:space-between;align-items:center;padding:0 6px}
+.round{width:86px;height:86px;border-radius:50%;font-size:16px;font-weight:500;position:relative;transition:transform .1s,opacity .2s}
+.round::after{content:"";position:absolute;inset:-5px;border-radius:50%;border:2px solid currentColor;opacity:.25}
+.round:active{transform:scale(.95)}
+#resetBtn{background:var(--fill);color:var(--text)}
+#resetBtn::after{opacity:.12}
+#goBtn{background:var(--go-bg);color:var(--go)}
+#goBtn.pause{background:var(--pause-bg);color:var(--pause)}
+#goBtn.stop{background:var(--stop-bg);color:var(--stop)}
+.round:disabled{opacity:.4}
+@keyframes ring{0%,100%{transform:scale(1)}50%{transform:scale(1.06)}}
+#goBtn.stop{animation:ring .9s infinite}
+
+/* ---------- настройки ---------- */
+.lt{padding:14px 4px 6px}
+.lt h1{font-size:34px;line-height:1.15;font-weight:700;letter-spacing:.2px}
+.sect{font-size:13px;text-transform:uppercase;color:var(--text2);padding:22px 16px 7px;letter-spacing:.2px}
+.foot{font-size:13px;color:var(--text2);padding:7px 16px 0;line-height:1.4}
+.list{background:var(--card);border-radius:12px;overflow:hidden}
+.row{display:flex;align-items:center;gap:12px;min-height:46px;padding:10px 16px;position:relative;width:100%;text-align:left}
+.row+.row::before{content:"";position:absolute;top:0;left:16px;right:0;border-top:.5px solid var(--sep)}
+.row .grow{flex:1;min-width:0}
+.row .val{color:var(--text2);font-variant-numeric:tabular-nums;min-width:74px;text-align:right}
+.row.col{flex-direction:column;align-items:stretch;gap:6px}
+.row.col .top{display:flex;justify-content:space-between}
+.row.btn{color:var(--accent)} .row.center{justify-content:center}
+select{border:0;background:none;color:var(--text2);font-size:17px;text-align:right;-webkit-appearance:none;appearance:none;padding:0}
+input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:28px;background:none}
+input[type=range]::-webkit-slider-runnable-track{height:4px;border-radius:2px;background:linear-gradient(to right,var(--accent) 0 var(--p,50%),var(--track) var(--p,50%) 100%)}
+input[type=range]::-moz-range-track{height:4px;border-radius:2px;background:linear-gradient(to right,var(--accent) 0 var(--p,50%),var(--track) var(--p,50%) 100%)}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:28px;height:28px;margin-top:-12px;border-radius:50%;background:#fff;box-shadow:0 .5px 4px rgba(0,0,0,.12),0 6px 13px rgba(0,0,0,.12),0 0 0 .5px rgba(0,0,0,.04)}
+input[type=range]::-moz-range-thumb{width:28px;height:28px;border:0;border-radius:50%;background:#fff;box-shadow:0 .5px 4px rgba(0,0,0,.12),0 6px 13px rgba(0,0,0,.12)}
+.switch{-webkit-appearance:none;appearance:none;width:51px;height:31px;border-radius:16px;background:var(--fill);position:relative;transition:background .25s;flex:none;cursor:pointer}
+.switch::after{content:"";position:absolute;top:2px;left:2px;width:27px;height:27px;border-radius:50%;background:#fff;box-shadow:0 3px 8px rgba(0,0,0,.15),0 3px 1px rgba(0,0,0,.06);transition:transform .25s}
+.switch:checked{background:var(--go)}
+.switch:checked::after{transform:translateX(20px)}
+.try{display:flex;justify-content:center;gap:16px;padding:14px 0 4px}
+.try .add{width:64px;font-size:15px}
+.tryv{font-size:28px;font-weight:300;text-align:center;font-variant-numeric:tabular-nums}
+
+/* ---------- таб-бар ---------- */
+#tabbar{position:fixed;left:0;right:0;bottom:0;display:flex;justify-content:space-around;padding:6px 8px calc(6px + env(safe-area-inset-bottom));background:var(--bar);-webkit-backdrop-filter:saturate(1.8) blur(20px);backdrop-filter:saturate(1.8) blur(20px);border-top:.5px solid var(--sep);z-index:10}
+#tabbar button{flex:1;max-width:140px;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:10px;font-weight:500;color:var(--text3);padding:2px 0}
+#tabbar button.on{color:var(--accent)}
+#tabbar svg{width:26px;height:26px}
+#toast{position:fixed;left:50%;bottom:calc(92px + env(safe-area-inset-bottom));transform:translate(-50%,20px);opacity:0;background:rgba(40,40,42,.92);color:#fff;padding:10px 16px;border-radius:20px;font-size:15px;font-weight:500;transition:all .25s;pointer-events:none;z-index:20;white-space:nowrap}
+#toast.show{opacity:1;transform:translate(-50%,0)}
+.nf{display:block;margin-top:18px;font-size:12px;color:inherit;opacity:.55;text-align:center;text-decoration:none}
+</style>
+</head>
+<body>
+
+<section class="tab" id="tab-timer">
+  <div class="wrap">
+    <div class="dial">
+      <svg viewBox="0 0 300 300" aria-hidden="true">
+        <circle cx="150" cy="150" r="142" fill="none" stroke="var(--track)" stroke-width="8"/>
+        <circle id="arc" cx="150" cy="150" r="142" fill="none" stroke="var(--accent)" stroke-width="8" stroke-linecap="round" stroke-dasharray="892.2 892.2" stroke-dashoffset="892.2"/>
+      </svg>
+      <div class="in">
+        <div id="time" role="timer" aria-live="off">00:00</div>
+        <div id="state">Добавь время</div>
+        <div id="ends"></div>
+      </div>
+    </div>
+    <div class="adds" id="adds"></div>
+    <div class="ctl">
+      <button class="round" id="resetBtn">Сброс</button>
+      <button class="round" id="goBtn">Старт</button>
+    </div>
+  </div>
+</section>
+
+<section class="tab hide" id="tab-settings">
+  <div class="wrap">
+    <header class="lt"><h1>Настройки</h1></header>
+
+    <div class="sect">Кнопки</div>
+    <div class="list">
+      <label class="row"><span class="grow">Первая</span><select id="b0"></select></label>
+      <label class="row"><span class="grow">Вторая</span><select id="b1"></select></label>
+      <label class="row"><span class="grow">Третья</span><select id="b2"></select></label>
+    </div>
+
+    <div class="sect">Удержание кнопки</div>
+    <div class="list">
+      <div class="row col"><div class="top"><span>Пауза до повтора</span><span class="val" id="delayV"></span></div><input type="range" id="delay" min="100" max="1000" step="50"></div>
+      <div class="row col"><div class="top"><span>Шаг повтора</span><span class="val" id="repV"></span></div><input type="range" id="rep" min="80" max="800" step="20"></div>
+      <div class="row col"><div class="top"><span>Ускорение</span><span class="val" id="accV"></span></div><input type="range" id="acc" min="0" max="50" step="5"></div>
+      <div class="row col"><div class="tryv" id="tryV">00:00</div><div class="try" id="tryBtns"></div><button class="row btn center" id="tryClear" style="min-height:36px;padding:4px">Очистить</button></div>
+    </div>
+    <div class="foot">Зажми кнопку: сначала время добавится один раз, после паузы — шагами. Ускорение делает каждый следующий шаг быстрее. Попробуй прямо здесь.</div>
+
+    <div class="sect">Во время отсчёта</div>
+    <div class="list">
+      <label class="row"><span class="grow">Не гасить экран</span><input type="checkbox" class="switch" id="wake"></label>
+    </div>
+    <div class="foot" id="wakeNote">Пока идёт таймер, экран не выключится. Работает на iOS 18.4 и новее.</div>
+
+    <div class="sect">Сигнал</div>
+    <div class="list">
+      <label class="row"><span class="grow">Звук</span><input type="checkbox" class="switch" id="sound"></label>
+      <label class="row"><span class="grow">Звонить, пока не остановлю</span><input type="checkbox" class="switch" id="loop"></label>
+      <button class="row btn" id="testSound">Проверить звук</button>
+    </div>
+    <div class="foot">Звук играет, только когда приложение открыто, и не слышен в беззвучном режиме.</div>
+
+    <div class="sect"></div>
+    <div class="list"><button class="row btn center" id="defaults">Вернуть настройки по умолчанию</button></div>
+    <a class="nf" href="https://www.netlify.com" target="_blank" rel="noopener">This site is powered by Netlify</a>
+  </div>
+</section>
+
+<nav id="tabbar">
+  <button data-tab="timer" class="on">
+    <svg viewBox="0 0 28 28" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="14" cy="15.5" r="9.5"/><path d="M14 15.5V10M11 3.5h6M21.5 7.5l1.8-1.8"/></svg>
+    Таймер
+  </button>
+  <button data-tab="settings">
+    <svg viewBox="0 0 28 28" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 8h18M5 14h18M5 20h18"/><circle cx="10" cy="8" r="2.3" fill="var(--bg)"/><circle cx="18" cy="14" r="2.3" fill="var(--bg)"/><circle cx="12" cy="20" r="2.3" fill="var(--bg)"/></svg>
+    Настройки
+  </button>
+</nav>
+<div id="toast"></div>
+<script src="app.js"></script>
+</body>
+</html>

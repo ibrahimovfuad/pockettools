@@ -1,0 +1,10 @@
+# Netlify: Base directory = apps/mood
+# public/app.js is committed pre-built (npm run build). Dependencies are installed for the functions.
+[build]
+  publish = "public"
+  functions = "netlify/functions"
+  # Only build when this folder changed (saves deploy credits)
+  ignore = "git diff --quiet $CACHED_COMMIT_REF $COMMIT_REF ."
+
+[functions]
+  node_bundler = "esbuild"

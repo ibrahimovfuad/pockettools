@@ -1,0 +1,11 @@
+# Запрещаем встроенные скрипты на страницах приложения — так не появляется плашка Netlify.
+# Google-адреса нужны для входа через Firebase, 'wasm-unsafe-eval' — для сканера штрихкодов.
+/
+  Content-Security-Policy: script-src 'self' 'wasm-unsafe-eval' https://apis.google.com https://www.gstatic.com https://www.google.com
+/index.html
+  Content-Security-Policy: script-src 'self' 'wasm-unsafe-eval' https://apis.google.com https://www.gstatic.com https://www.google.com
+/u/*
+  Content-Security-Policy: script-src 'self' 'wasm-unsafe-eval' https://apis.google.com https://www.gstatic.com https://www.google.com
+  X-Robots-Tag: noindex
+/zxing_reader.wasm
+  Content-Type: application/wasm

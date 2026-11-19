@@ -1,0 +1,5 @@
+# Запрещаем встроенные скрипты — так не появляется плашка Netlify
+/
+  Content-Security-Policy: script-src 'self'
+/index.html
+  Content-Security-Policy: script-src 'self'

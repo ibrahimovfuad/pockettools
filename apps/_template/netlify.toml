@@ -1,0 +1,11 @@
+# In Netlify set "Base directory" to apps/<app-name>; this file is then read from here.
+
+[build]
+  # Static app without a build step: publish the folder as-is.
+  publish = "."
+  # For a Vite app instead use:
+  # command = "npm run build"
+  # publish = "dist"
+
+  # Only build when something inside this folder changed (saves deploy credits).
+  ignore = "git diff --quiet $CACHED_COMMIT_REF $COMMIT_REF ."

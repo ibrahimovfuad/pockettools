@@ -1,0 +1,5 @@
+# Netlify: Base directory = apps/timer
+[build]
+  publish = "public"
+  # Only build when this folder changed (saves deploy credits)
+  ignore = "git diff --quiet $CACHED_COMMIT_REF $COMMIT_REF ."

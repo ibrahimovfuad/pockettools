@@ -1,0 +1,5 @@
+# Вход через Google: Firebase-помощник отдаётся с нашего же домена
+/__/auth/*      https://login-e91f7.firebaseapp.com/__/auth/:splat      200
+/__/firebase/*  https://login-e91f7.firebaseapp.com/__/firebase/:splat  200
+# Полка для друзей: /u/код открывает то же приложение в режиме просмотра
+/u/*            /index.html                                             200

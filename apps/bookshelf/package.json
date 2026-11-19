@@ -1,0 +1,13 @@
+{
+  "name": "polka-books",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "esbuild src/main.js --bundle --minify --format=iife --target=es2020,safari15 --outfile=public/app.js"
+  },
+  "devDependencies": {
+    "esbuild": "^0.24.0",
+    "firebase": "^11.0.2",
+    "zxing-wasm": "^2.1.0"
+  }
+}

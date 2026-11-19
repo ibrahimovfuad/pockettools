@@ -1,0 +1,57 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function owner(uid) { return request.auth != null && request.auth.uid == uid; }
+
+    // Настроение: оценки дней
+    match /users/{uid}/days/{day} {
+      allow read, delete: if owner(uid);
+      allow create, update: if owner(uid)
+        && day.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
+        && request.resource.data.keys().hasOnly(['score', 'note', 'updatedAt'])
+        && request.resource.data.score is int
+        && request.resource.data.score >= 0 && request.resource.data.score <= 10
+        && (!('note' in request.resource.data) || (request.resource.data.note is string && request.resource.data.note.size() <= 1000));
+    }
+
+    // Привычки
+    match /users/{uid}/habits/{id} {
+      allow read, delete: if owner(uid);
+      allow create, update: if owner(uid)
+        && request.resource.data.name is string
+        && request.resource.data.name.size() > 0 && request.resource.data.name.size() <= 60;
+    }
+
+    // Отметки привычек: один документ на привычку за год
+    match /users/{uid}/logs/{id} {
+      allow read, delete: if owner(uid);
+      allow create, update: if owner(uid) && request.resource.data.habitId is string;
+    }
+  
+    // Полка: профиль (настройки ссылки для друзей), книги и цитаты
+    match /users/{uid} {
+      allow read, write: if owner(uid);
+    }
+    match /users/{uid}/books/{id} {
+      allow read, delete: if owner(uid);
+      allow create, update: if owner(uid)
+        && request.resource.data.title is string
+        && request.resource.data.title.size() > 0 && request.resource.data.title.size() <= 300;
+    }
+    match /users/{uid}/quotes/{id} {
+      allow read, delete: if owner(uid);
+      allow create, update: if owner(uid)
+        && request.resource.data.text is string && request.resource.data.text.size() <= 2000;
+    }
+
+    // Полка для друзей: копия только для чтения, открывается по ссылке без входа.
+    // Списком документы получить нельзя — только зная точный код из ссылки.
+    match /public/{id} {
+      allow get: if true;
+      allow list: if false;
+      allow create: if request.auth != null && request.resource.data.uid == request.auth.uid;
+      allow update: if request.auth != null && resource.data.uid == request.auth.uid && request.resource.data.uid == request.auth.uid;
+      allow delete: if request.auth != null && resource.data.uid == request.auth.uid;
+    }
+  }
+}
