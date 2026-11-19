@@ -15,7 +15,7 @@ A monorepo of small, independent PWAs. Each app is its own Netlify site, deploye
 | `apps/bookshelf` | shelff2.netlify.app | esbuild bundle |
 | `site` | pockettools2.netlify.app | none — project homepage |
 
-`firebase/firestore.rules` holds the Firestore security rules shared by Mood, Habits and Bookshelf (published manually in the Firebase console).
+`firebase/firestore.rules` holds the Firestore security rules shared by the Firebase apps. A push to `main` that changes it publishes it automatically (`.github/workflows/firestore-rules.yml`). Never loosen a rule without a reason: every collection must stay readable and writable only by its owner (`request.auth.uid`).
 
 ## Rules
 
