@@ -34,6 +34,9 @@ npm run dev
 
 ## Guidelines
 
+See [AGENTS.md](AGENTS.md) for the full list of project rules (build steps, service-worker versions, CSP, required links). It is written for AI coding agents but applies to everyone.
+
+
 - Keep apps small, dependency-light and readable.
 - Never commit secrets (API keys, private keys, tokens). Use environment variables and document them in the app's README.
 - Make sure the app still works on mobile Safari and Chrome.
