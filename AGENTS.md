@@ -14,7 +14,6 @@ A monorepo of small, independent PWAs. Each app is its own Netlify site, deploye
 | `apps/habits` | habitslog2.netlify.app | esbuild bundle |
 | `apps/bookshelf` | shelff2.netlify.app | esbuild bundle |
 | `apps/spend` | spendlog2.netlify.app | esbuild bundle — site created and deployed by `.github/workflows/netlify-apps.yml` (not Git-linked) |
-| `apps/lightmeter` | lightmeter2.netlify.app | esbuild bundle — site created and deployed by `.github/workflows/netlify-apps.yml` (not Git-linked) |
 | `site` | pockettools2.netlify.app | none — project homepage |
 
 `firebase/firestore.rules` holds the Firestore security rules shared by the Firebase apps. A push to `main` that changes it publishes it automatically (`.github/workflows/firestore-rules.yml`). Never loosen a rule without a reason: every collection must stay readable and writable only by its owner (`request.auth.uid`).
@@ -22,7 +21,7 @@ A monorepo of small, independent PWAs. Each app is its own Netlify site, deploye
 ## Rules
 
 1. **Apps are independent.** Never import files from another app's folder. Shared code is copied, not linked — each folder must deploy on its own with its own Base directory.
-2. **Bundled apps (Mood, Habits, Bookshelf, Spend, Lightmeter): edit `src/main.js`, never `public/app.js` directly.** Then run `npm install` (first time) and `npm run build` inside the app folder, and commit the rebuilt `public/app.js`. Netlify does not run the build.
+2. **Bundled apps (Mood, Habits, Bookshelf, Spend): edit `src/main.js`, never `public/app.js` directly.** Then run `npm install` (first time) and `npm run build` inside the app folder, and commit the rebuilt `public/app.js`. Netlify does not run the build.
 3. **Bump the service-worker cache after every change to an app** — the `CACHE` constant at the top of its `sw.js` (e.g. `mood-v5` → `mood-v6`). Service workers are network-first, and each app checks for a new `sw.js` on launch and when it returns to the foreground; a changed `sw.js` is what triggers the automatic one-time reload on users' phones. Keep the auto-update registration block at the end of each app's main script. The number in `CACHE` is also the app version shown at the bottom of every app (the page asks the running service worker for it), so bump it by one each time.
 4. **No inline scripts.** `_headers` sets a Content-Security-Policy with `script-src 'self'`. All JavaScript goes in separate `.js` files referenced with `<script src>`. Inline `<script>` blocks and `onclick=` attributes will not run. If a new external host is needed, update `_headers` too.
 5. **Keep the required links.** Every app's main screen must show "This site is powered by Netlify" (link to https://www.netlify.com) and "Open source on GitHub". This is a condition of the Netlify Open Source plan — do not remove or hide them.

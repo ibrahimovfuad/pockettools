@@ -1,8 +1,0 @@
-# Disallow inline scripts on app pages — this also keeps the Netlify badge from being injected.
-# Google hosts are needed for Firebase sign-in. Camera and location only for this site.
-/
-  Content-Security-Policy: script-src 'self' https://apis.google.com https://www.gstatic.com https://www.google.com
-  Permissions-Policy: camera=(self), geolocation=(self), microphone=()
-/index.html
-  Content-Security-Policy: script-src 'self' https://apis.google.com https://www.gstatic.com https://www.google.com
-  Permissions-Policy: camera=(self), geolocation=(self), microphone=()

@@ -4,6 +4,7 @@ All notable changes to Pocket Tools are listed here, newest first.
 
 ## 2026-11-20
 
+- Lightmeter removed: browsers on iPhone do not report the camera’s exposure, so readings could not be made reliable.
 - Lightmeter: tapping a value on a dial selects it again (it used to snap back).
 - Lightmeter: the camera stream is kept (paused) when you leave the meter, switch to Manual or lock the phone, so iPhone stops asking for camera access each time.
 - Lightmeter: dials only move sideways — no more dragging values up or down out of the row.

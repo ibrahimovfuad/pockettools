@@ -10,7 +10,6 @@
     "site": "pockettools2"
   },
   "names": {
-    "apps/spend": "spendlog2",
-    "apps/lightmeter": "lightmeter2"
+    "apps/spend": "spendlog2"
   }
 }
