@@ -1,7 +1,7 @@
 // Offline cache. Bump the version whenever files change.
-const CACHE = 'polka-v9';
+const CACHE = 'polka-v10';
 const COVERS = 'polka-covers';
-const FILES = ['/', '/index.html', '/app.js', '/onboarding.js', '/config.js', '/manifest.webmanifest', '/icon-192.png', '/icon-512.png', '/apple-touch-icon.png', '/zxing_reader.wasm'];
+const FILES = ['/', '/index.html', '/app.js', '/nozoom.js', '/onboarding.js', '/config.js', '/manifest.webmanifest', '/icon-192.png', '/icon-512.png', '/apple-touch-icon.png', '/zxing_reader.wasm'];
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(FILES)).then(() => self.skipWaiting()));

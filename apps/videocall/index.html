@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#000">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -83,7 +83,7 @@ body.incall .nf.vc{display:none}
 html,body{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent}
 a,input,textarea,select,[contenteditable]{-webkit-user-select:text;user-select:text}
 a{-webkit-touch-callout:default}
-html{touch-action:manipulation}
+html{touch-action:pan-x pan-y}
 /* app version (filled from the running service worker, see the end of the main script) */
 .app-ver{pointer-events:auto;font-size:11px;color:var(--text3,inherit);opacity:.8;text-align:center;margin-top:6px;font-variant-numeric:tabular-nums}
 .app-ver::after{content:var(--app-ver,'')}
@@ -114,6 +114,7 @@ body.incall .app-ver{display:none}
 </div>
 <div id="safe"></div>
 
+<script src="nozoom.js"></script>
 <script src="peerjs.min.js"></script>
 <script src="app.js"></script>
 </body>

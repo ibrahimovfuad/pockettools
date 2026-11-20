@@ -1,6 +1,6 @@
 // Offline cache. Bump the version whenever files change.
-const CACHE = 'habits-v10';
-const FILES = ['./', 'index.html', 'app.js', 'onboarding.js', 'config.js', 'manifest.webmanifest', 'icon-192.png', 'icon-512.png', 'apple-touch-icon.png'];
+const CACHE = 'habits-v11';
+const FILES = ['./', 'index.html', 'app.js', 'nozoom.js', 'onboarding.js', 'config.js', 'manifest.webmanifest', 'icon-192.png', 'icon-512.png', 'apple-touch-icon.png'];
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(FILES)).then(() => self.skipWaiting()));
