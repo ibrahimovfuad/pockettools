@@ -26,8 +26,12 @@ jobs:
         with:
           node-version: 22
       - name: Cache bump, English UI, CSP, required links, shared files
+        env:
+          EVENT: ${{ github.event_name }}
+          BASE_REF: ${{ github.base_ref }}
+          BEFORE: ${{ github.event.before }}
         run: |
-          if [ "${{ github.event_name }}" = "pull_request" ]; then BASE="origin/${{ github.base_ref }}"; else BASE="${{ github.event.before }}"; fi
+          if [ "$EVENT" = "pull_request" ]; then BASE="origin/$BASE_REF"; else BASE="$BEFORE"; fi
           git cat-file -e "$BASE^{commit}" 2>/dev/null || BASE="HEAD^"
           python3 .github/scripts/pt.py check "$BASE" HEAD
       - name: Syntax of plain JavaScript and Python
@@ -106,6 +110,30 @@ jobs:
           node-version: 22
       - run: npm ci --no-audit --no-fund
       - run: npm run test:account
+      - name: Push helpers (need the Mood function dependencies)
+        run: |
+          (cd apps/mood && npm ci --omit=dev --ignore-scripts --no-audit --no-fund)
+          npm run test:push
+
+  audit:
+    # Report only: lists known vulnerabilities in production dependencies. It never fails the build and is not part of "CI ok".
+    name: Dependency audit (report only)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+      - name: npm audit (production dependencies)
+        continue-on-error: true
+        run: |
+          for d in . tools/deploy apps/bookshelf apps/digest apps/habits apps/mood apps/routes apps/spend; do
+            echo "::group::npm audit $d"
+            (cd "$d" && npm audit --omit=dev --audit-level=high) || echo "::warning::npm audit reports high-severity findings in $d"
+            echo "::endgroup::"
+          done
 
   ok:
     name: CI ok
@@ -114,5 +142,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: All jobs passed
+        env:
+          NEEDS: ${{ toJSON(needs) }}
         run: |
-          echo '${{ toJSON(needs) }}' | python3 -c 'import json,sys; bad=[k for k,v in json.load(sys.stdin).items() if v["result"]!="success"]; print("Failed:", ", ".join(bad) or "none"); sys.exit(1 if bad else 0)'
+          echo "$NEEDS" | python3 -c 'import json,sys; bad=[k for k,v in json.load(sys.stdin).items() if v["result"]!="success"]; print("Failed:", ", ".join(bad) or "none"); sys.exit(1 if bad else 0)'

@@ -55,3 +55,7 @@ Step-by-step guide in Russian: [README.ru.md](README.ru.md).
 ## License
 
 MIT — see the [root LICENSE](../../LICENSE).
+
+## Security notes
+
+A friends link (`/u/<id>`) is a document that its owner writes and anybody can read, so the viewer treats it as untrusted input (`cleanPublic()` in `src/main.js`): known fields only, ratings 0–5, covers and photos only as `https:` links, valid ids and dates, capped lengths; ratings, reviews and the reason for skipping a book are shown only if the owner chose to show ratings and reviews. The shelf document keeps the owner's account id (`uid`) because the Firestore rules need it to tell who may change or delete the shelf. Signing out empties the cover cache and Firestore's offline copy on the device.

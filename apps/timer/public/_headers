@@ -1,5 +1,7 @@
-# Disallow inline scripts — this also keeps the Netlify badge from being injected
-/
-  Content-Security-Policy: script-src 'self'
-/index.html
-  Content-Security-Policy: script-src 'self'
+# No inline scripts (script-src 'self'; this also keeps the Netlify badge from being injected), no plugins, no <base> tricks,
+# no form posts to other sites, and no embedding of the pages in other sites.
+/*
+  Content-Security-Policy: script-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: accelerometer=(), camera=(), display-capture=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), midi=(), payment=(), usb=()

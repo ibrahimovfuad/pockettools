@@ -1,13 +1,13 @@
 import { initializeApp } from 'firebase/app';
 import {
   initializeAuth, indexedDBLocalPersistence, browserLocalPersistence, browserPopupRedirectResolver,
-  GoogleAuthProvider, signInWithRedirect, getRedirectResult, onAuthStateChanged, signOut
+  GoogleAuthProvider, signInWithRedirect, getRedirectResult, onAuthStateChanged
 } from 'firebase/auth';
 import {
   initializeFirestore, getFirestore, persistentLocalCache, persistentSingleTabManager,
   collection, doc, setDoc, deleteDoc, onSnapshot
 } from 'firebase/firestore';
-import { initAccount } from './account.js';
+import { initAccount, signOutAndWipe } from './account.js';
 
 // ================= Utilities =================
 const $ = id => document.getElementById(id);
@@ -104,7 +104,7 @@ function firebaseBackend() {
       onAuthStateChanged(auth, u => cb(u && { uid: u.uid, name: u.displayName || 'No name', email: u.email || '' }));
     },
     signIn() { const p = new GoogleAuthProvider(); p.setCustomParameters({ prompt: 'select_account' }); return signInWithRedirect(auth, p); },
-    signOut() { subs.forEach(f => f()); subs = []; return signOut(auth); },
+    signOut() { return signOutAndWipe({ db, auth }, () => { subs.forEach(f => f()); subs = []; }); },
     firebase: () => ({ db, auth }),
     stop() { subs.forEach(f => f()); subs = []; },
     listen(uid, on) {
@@ -148,7 +148,7 @@ const ACCOUNT = { app: 'spend', getUser: () => user, getFirebase: () => store.fi
 
 // ================= State =================
 let user = null, cats = [], exps = [], meta = {}, seeded = false, loaded = { cats: false, exps: false, meta: false };
-let amt = '', view = 'amount', pending = null;   // pending = { merchant, source } from the Apple Pay link
+let amt = '', view = 'amount', pending = null;   // pending = { merchant, source, suggest } from the Apple Pay link; suggest = category id of a shop rule
 const C = id => cats.find(c => c.id === id) || NO_CAT;
 const sortCats = a => a.slice().sort((x, y) => (x.order ?? 0) - (y.order ?? 0));
 
@@ -249,13 +249,19 @@ function renderCategory() {
   const n = parseFloat(amt) || 0;
   $('catAmt').textContent = money(n, true) + ' zł';
   $('merchantBox').innerHTML = pending && pending.merchant ? `<div class="merchant"><span class="sq" style="background:#000">${svg('card')}</span><div class="m"><small>Apple Pay</small><b>${esc(pending.merchant)}</b></div><span class="a">${money(n, true)} zł</span></div>` : '';
+  // a shop rule only pre-selects the category: a link can be opened by anyone (or by a page), so nothing is saved until you tap Save
+  const sg = pending && pending.suggest && cats.find(c => c.id === pending.suggest);
+  if (sg) {
+    $('merchantBox').insertAdjacentHTML('beforeend', `<button class="row link press" id="suggestSave" style="margin-top:10px;width:100%;justify-content:center">Save in ${esc(sg.name)}</button><div class="foot" style="text-align:center">Or tap another category below.</div>`);
+    $('suggestSave').onclick = () => saveExpense(sg.id, n, { merchant: pending.merchant, source: pending.source });
+  }
   const list = sortCats(cats);
   $('catGrid').innerHTML = list.map((c, i) => `<button class="tile press" data-id="${esc(c.id)}" style="animation-delay:${(i * 0.035).toFixed(3)}s">${sq(c)}<span>${esc(c.name)}</span></button>`).join('')
     || '<div class="empty" style="grid-column:1/-1">No categories yet — add some in Settings.</div>';
   $('catGrid').querySelectorAll('.tile').forEach(b => press(b,
     () => { const m = pending && pending.merchant; if (m) setRule(m, b.dataset.id, ruleOn); saveExpense(b.dataset.id, n, { merchant: m, source: pending ? pending.source : 'manual' }); },
     () => openNote(b.dataset.id, n)));
-  $('ruleBox').innerHTML = pending && pending.merchant ? `<label class="row rulebox group" style="border-radius:12px"><span class="grow">Always file <b>${esc(pending.merchant)}</b> under the category I tap</span><input type="checkbox" class="switch" id="ruleSw" ${ruleOn ? 'checked' : ''}></label><div class="foot">Next time this shop is saved automatically — no screen at all.</div>` : '';
+  $('ruleBox').innerHTML = pending && pending.merchant ? `<label class="row rulebox group" style="border-radius:12px"><span class="grow">Always file <b>${esc(pending.merchant)}</b> under the category I tap</span><input type="checkbox" class="switch" id="ruleSw" ${ruleOn ? 'checked' : ''}></label><div class="foot">Next time this shop is pre-selected, so saving takes one tap.</div>` : '';
   const sw = $('ruleSw'); if (sw) sw.onchange = () => { ruleOn = sw.checked; };
 }
 
@@ -371,7 +377,7 @@ function renderSettings() {
     <div class="group"><label class="row"><span class="grow">Budget, zł</span><input class="inl" id="budget" inputmode="decimal" placeholder="Off" value="${meta.budget ? money(meta.budget).replace(/\s/g, '') : ''}"></label></div>
     <div class="foot">Shown as a bar on the month screen. Leave empty to hide it.</div>
 
-    ${rules.length ? `<div class="sect">Shops filed automatically</div><div class="group">${rules.map(([m, cid]) => `<div class="row ic">${sq(C(cid))}<span class="grow">${esc(m)}<span class="small">${esc(C(cid).name)}</span></span><button class="act" data-rule="${esc(m)}" style="color:var(--danger);font-size:15px">Remove</button></div>`).join('')}</div>` : ''}
+    ${rules.length ? `<div class="sect">Shops pre-selected</div><div class="group">${rules.map(([m, cid]) => `<div class="row ic">${sq(C(cid))}<span class="grow">${esc(m)}<span class="small">${esc(C(cid).name)}</span></span><button class="act" data-rule="${esc(m)}" style="color:var(--danger);font-size:15px">Remove</button></div>`).join('')}</div>` : ''}
 
     <div class="sect">Apple Pay automation</div>
     <div class="group howto">Log Apple Pay payments with one tap:
@@ -456,7 +462,8 @@ function openCatEditor(c0) {
 }
 
 function exportCsv() {
-  const cell = v => { const s = String(v == null ? '' : v); return /[",\n;]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; };
+  // a cell that starts with = + - @ (or a tab or return) would be run as a formula by a spreadsheet: a leading ' makes it plain text
+  const cell = v => { let s = String(v == null ? '' : v); if (/^[=+\-@\t\r]/.test(s)) s = "'" + s; return /[",\n;\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; };
   const rows = [['Date', 'Amount', 'Category', 'Note', 'Shop', 'Source']].concat(exps.slice().sort((a, b) => a.date.localeCompare(b.date) || a.ts - b.ts)
     .map(e => [e.date, money(e.amount, true).replace(/\s/g, ''), C(e.catId).name, e.note || '', e.merchant || '', e.source || '']));
   const name = `spend-${iso(today())}.csv`, blob = new Blob(['﻿' + rows.map(r => r.map(cell).join(',')).join('\n')], { type: 'text/csv' });
@@ -478,8 +485,7 @@ function handleIncoming() {
   if (!incoming || !loaded.cats || !loaded.exps || !loaded.meta || !cats.length) return;
   const { amount, merchant } = incoming; incoming = null;
   const rule = merchant && (meta.rules || {})[merchant.toLowerCase()];
-  if (rule && cats.some(c => c.id === rule)) { saveExpense(rule, amount, { merchant, source: 'applepay' }); return; }
-  amt = String(amount); pending = { merchant, source: 'applepay' }; ruleOn = true;
+  amt = String(amount); pending = { merchant, source: 'applepay', suggest: rule && cats.some(c => c.id === rule) ? rule : null }; ruleOn = true;
   go('category');
 }
 

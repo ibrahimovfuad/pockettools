@@ -9,6 +9,7 @@
     "test:smoke": "playwright test",
     "sync-shared": "node scripts/sync-shared.mjs",
     "test:account": "node --test tests/account.unit.mjs",
+    "test:push": "node --test tests/push.unit.mjs",
     "release": "node scripts/release.mjs",
     "new-app": "node scripts/new-app.mjs"
   },

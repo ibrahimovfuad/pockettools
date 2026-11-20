@@ -1,18 +1,23 @@
 import { initializeApp } from 'firebase/app';
 import {
   initializeAuth, indexedDBLocalPersistence, browserLocalPersistence, browserPopupRedirectResolver,
-  GoogleAuthProvider, signInWithRedirect, getRedirectResult, onAuthStateChanged, signOut
+  GoogleAuthProvider, signInWithRedirect, getRedirectResult, onAuthStateChanged
 } from 'firebase/auth';
 import {
   initializeFirestore, getFirestore, persistentLocalCache, persistentSingleTabManager,
   collection, doc, setDoc, deleteDoc, getDoc, onSnapshot, writeBatch
 } from 'firebase/firestore';
-import { initAccount } from './account.js';
+import { initAccount, signOutAndWipe } from './account.js';
 import { prepareZXingModule, readBarcodes } from 'zxing-wasm/reader';
 
 // ===================== Utilities =====================
 const $ = id => document.getElementById(id);
 const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+// Ids come from Firestore document ids or from a public shelf that anybody can write: they are only ever put into
+// HTML through esc() (or tok() inside CSS), and ids from outside are checked with okId().
+const ID_RE = /^[\w-]{1,40}$/;
+const okId = s => typeof s === 'string' && ID_RE.test(s);
+const tok = s => String(s == null ? '' : s).replace(/[^\w-]/g, '_');
 const pad = n => String(n).padStart(2, '0');
 const todayIso = () => { const d = new Date(); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; };
 const uid8 = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
@@ -117,7 +122,7 @@ function firebaseBackend() {
       onAuthStateChanged(a, u => cb(u && { uid: u.uid, name: u.displayName || 'No name', email: u.email || '', photo: u.photoURL }));
     },
     signIn() { const p = new GoogleAuthProvider(); p.setCustomParameters({ prompt: 'select_account' }); return signInWithRedirect(getAuth(), p); },
-    signOut() { subs.forEach(f => f()); subs = []; return signOut(getAuth()); },
+    signOut() { return signOutAndWipe({ db, auth: getAuth() }, () => { subs.forEach(f => f()); subs = []; }, () => window.caches && caches.delete('polka-covers')); },
     firebase: () => ({ db, auth: getAuth() }),
     stop() { subs.forEach(f => f()); subs = []; },
     listen(uid, on) {
@@ -128,25 +133,30 @@ function firebaseBackend() {
         onSnapshot(doc(db, 'users', uid), s => on.profile(s.exists() ? s.data() : {}), () => {})
       ];
     },
-    saveBook(uid, b) { const { id, ...d } = b; setDoc(doc(db, 'users', uid, 'books', id), clean(d)).catch(fail('Not saved')); },
+    saveBook(uid, b) { setDoc(doc(db, 'users', uid, 'books', b.id), clean(pick(b, BOOK_KEYS))).catch(fail('Not saved')); },
     async saveBooks(uid, list) {
       for (let i = 0; i < list.length; i += 400) {
         const bt = writeBatch(db);
-        list.slice(i, i + 400).forEach(b => { const { id, ...d } = b; bt.set(doc(db, 'users', uid, 'books', id), clean(d)); });
+        list.slice(i, i + 400).forEach(b => { bt.set(doc(db, 'users', uid, 'books', b.id), clean(pick(b, BOOK_KEYS))); });
         await bt.commit().catch(fail('Not saved'));
       }
     },
     deleteBook(uid, id) { deleteDoc(doc(db, 'users', uid, 'books', id)).catch(fail('Not deleted')); },
-    saveQuote(uid, q) { const { id, ...d } = q; setDoc(doc(db, 'users', uid, 'quotes', id), clean(d)).catch(fail('Not saved')); },
+    saveQuote(uid, q) { setDoc(doc(db, 'users', uid, 'quotes', q.id), clean(pick(q, QUOTE_KEYS))).catch(fail('Not saved')); },
     deleteQuote(uid, id) { deleteDoc(doc(db, 'users', uid, 'quotes', id)).catch(fail('Not deleted')); },
     saveProfile(uid, p) { setDoc(doc(db, 'users', uid), clean(p), { merge: true }).catch(fail('Not saved')); },
-    putPublic(id, data) { return setDoc(doc(db, 'public', id), clean(data)).catch(() => {}); },
-    deletePublic(id) { return deleteDoc(doc(db, 'public', id)).catch(() => {}); },
+    putPublic(id, data) { return setDoc(doc(db, 'public', id), clean(data)).catch(fail('The friends link was not updated')); },
+    deletePublic(id) { return deleteDoc(doc(db, 'public', id)).catch(fail('The old link could not be removed')); },
     async getPublic(id) { const s = await getDoc(doc(db, 'public', id)); return s.exists() ? s.data() : null; }
   };
 }
 // Firestore does not accept undefined
 function clean(o) { return JSON.parse(JSON.stringify(o)); }
+// Only these fields are stored (firebase/firestore.rules lists the same ones). Anything else on an object — an old
+// field, or an unknown key in an imported backup — is dropped before saving, so one stray field can never make a save fail.
+const BOOK_KEYS = ['title', 'author', 'genre', 'year', 'pages', 'format', 'isbn', 'cover', 'desc', 'status', 'start', 'end', 'rating', 'review', 'why', 'order', 'created', 'updated', 'looked'];
+const QUOTE_KEYS = ['bookId', 'page', 'text', 'created', 'updated'];
+const pick = (o, keys) => { const r = {}; for (const k of keys) if (o[k] !== undefined) r[k] = o[k]; return r; };
 
 function demoBackend() {
   const R = (k, d) => { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch (e) { return d; } };
@@ -187,10 +197,12 @@ const saveUI = () => { try { localStorage.setItem('polka-ui', JSON.stringify({ l
 const ro = () => !!S.pub;   // read-only
 const B = id => S.books.find(b => b.id === id);
 const STATUS = { queue: 'Want to read', reading: 'Reading', done: 'Read', dropped: 'Skipped' };   // stored value stays 'dropped' (existing data)
+const statusName = k => (Object.hasOwn(STATUS, k) ? STATUS[k] : STATUS.queue);
 const FORMATS = ['Paper', 'E-book', 'Audio'];
 // older versions stored Russian format/genre names — show them in English
 const LEGACY = { 'Бумага': 'Paper', 'Электронная': 'E-book', 'Аудио': 'Audio', 'Художественная': 'Fiction', 'Детская': 'Children', 'Биография': 'Biography', 'История': 'History', 'Наука': 'Science', 'Психология': 'Psychology', 'Бизнес': 'Business', 'Саморазвитие': 'Self-help', 'Философия': 'Philosophy', 'Технологии': 'Technology', 'Поэзия': 'Poetry', 'Путешествия': 'Travel', 'Религия': 'Religion', 'Здоровье': 'Health', 'Кулинария': 'Cooking', 'Искусство': 'Art', 'Образование': 'Education', 'Политика': 'Politics', 'Общество': 'Society', 'Литературоведение': 'Literary criticism', 'Драматургия': 'Drama', 'Тру-крайм': 'True crime', 'Комиксы': 'Comics' };   // cyrillic-ok
-const fixLegacy = b => ({ ...b, format: LEGACY[b.format] || b.format, genre: LEGACY[b.genre] || b.genre });
+const legacy = v => (Object.hasOwn(LEGACY, v) ? LEGACY[v] : v);
+const fixLegacy = b => ({ ...b, format: legacy(b.format), genre: legacy(b.genre) });
 
 // skipped books stay out of Read unless the Skipped chip is on
 function inTab(b, tab) { return tab === 'done' ? (b.status === 'done' || (S.showSkipped && b.status === 'dropped')) : b.status === tab; }
@@ -232,13 +244,44 @@ function start() {
   $('signInBtn').onclick = () => { $('loginErr').textContent = ''; store.signIn().catch(e => { $('loginErr').textContent = authError(e); }); };
 }
 
+// A public shelf is written by whoever owns the link, so it is untrusted input: keep only known fields, with the right
+// types and sizes, links only as https:, ids only in the allowed alphabet, and ratings and reviews only if the owner shows them.
+const clip = (v, n) => (typeof v === 'string' ? v.slice(0, n) : '');
+const wholeNum = v => { const n = Math.trunc(+v); return Number.isFinite(n) ? Math.max(0, Math.min(1e9, n)) : 0; };
+const numeric = v => (typeof v === 'number' && Number.isFinite(v) ? v : 0);
+const safeDate = v => (typeof v === 'string' && /^\d{4}(-(0[1-9]|1[0-2])(-(0[1-9]|[12]\d|3[01]))?)?$/.test(v) ? v : '');
+const httpsUrl = v => { if (typeof v !== 'string' || v.length > 1000) return ''; try { const u = new URL(v); return u.protocol === 'https:' ? u.href : ''; } catch (e) { return ''; } };
+function cleanPublic(d) {
+  d = d && typeof d === 'object' ? d : {};
+  const showR = d.showR !== false, showQ = d.showQ !== false;
+  const used = new Set();
+  const books = (Array.isArray(d.books) ? d.books : []).slice(0, 5000).filter(b => b && typeof b === 'object').map((b, i) => {
+    let id = okId(b.id) ? b.id : 'p' + i;
+    while (used.has(id)) id += '_';
+    used.add(id);
+    const num = v => (typeof v === 'number' ? String(wholeNum(v)) : clip(v, 10));
+    return {
+      id, title: clip(b.title, 300), author: clip(b.author, 300), genre: clip(b.genre, 100), format: clip(b.format, 40),
+      year: num(b.year), pages: num(b.pages), cover: httpsUrl(b.cover), desc: clip(b.desc, 900),
+      status: Object.hasOwn(STATUS, b.status) ? b.status : 'queue', start: safeDate(b.start), end: safeDate(b.end),
+      order: numeric(b.order), created: numeric(b.created),
+      rating: showR ? Math.min(5, wholeNum(b.rating)) : 0, review: showR ? clip(b.review, 5000) : '', why: showR ? clip(b.why, 1000) : ''
+    };
+  });
+  const quotes = showQ ? (Array.isArray(d.quotes) ? d.quotes : []).slice(0, 10000).filter(q => q && typeof q === 'object' && used.has(q.bookId) && okId(q.id)).map(q => ({
+    id: q.id, bookId: q.bookId, page: clip(q.page, 10).replace(/\D/g, ''), text: clip(q.text, 2000), created: numeric(q.created)
+  })) : [];
+  return { name: clip(d.name, 100), photo: httpsUrl(d.photo), showR, showQ, books, quotes };
+}
+
 async function openPublic(id) {
   $('app').classList.remove('hide'); $('bar').classList.remove('hide');
   $('screen').innerHTML = '<div class="empty">Loading the shelf…</div>';
   let data = null;
   try { data = await store.getPublic(id); } catch (e) {}
   if (!data) { $('bar').classList.add('hide'); $('screen').innerHTML = '<div class="empty" style="padding-top:30vh"><b>This link doesn’t work</b>The owner turned it off or replaced it with a new one.</div>'; return; }
-  S.pub = data; S.books = (data.books || []).map(fixLegacy); S.quotes = data.quotes || [];
+  const pub = cleanPublic(data);
+  S.pub = pub; S.books = pub.books.map(fixLegacy); S.quotes = pub.quotes;
   S.layout = 'grid' === S.layout ? 'grid' : 'list'; S.sort = 'manual';
   render();
 }
@@ -325,9 +368,9 @@ function libHTML() {
     return html;
   }
   if (S.layout === 'grid') {
-    html += `<div class="grid">${L.map(b => `<button class="gitem" data-open="${b.id}" style="--vtn:r-${b.id}">${coverHTML(b, 'grid')}<div class="m"><span>${metaBadge(b)}</span><span>${esc(metaShort(b))}</span></div></button>`).join('')}</div>`;
+    html += `<div class="grid">${L.map(b => `<button class="gitem" data-open="${esc(b.id)}" style="--vtn:r-${tok(b.id)}">${coverHTML(b, 'grid')}<div class="m"><span>${metaBadge(b)}</span><span>${esc(metaShort(b))}</span></div></button>`).join('')}</div>`;
   } else {
-    html += `<div id="rows">${L.map(b => `<div class="row" data-id="${b.id}" style="--vtn:r-${b.id}"><button data-open="${b.id}" style="display:flex;gap:14px;align-items:center;flex:1;min-width:0;text-align:left">
+    html += `<div id="rows">${L.map(b => `<div class="row" data-id="${esc(b.id)}" style="--vtn:r-${tok(b.id)}"><button data-open="${esc(b.id)}" style="display:flex;gap:14px;align-items:center;flex:1;min-width:0;text-align:left">
       <div style="width:66px;height:99px;flex:none">${coverHTML(b, '', 66)}</div>
       <div class="info"><div class="t">${esc(b.title)}</div><div class="a">${esc(b.author || 'Unknown author')}</div><div class="m">${metaBadge(b)}${metaBadge(b) ? ' ' : ''}${esc(metaLine(b))}</div></div></button>
       ${draggable ? `<span class="grip" data-grip aria-label="Drag">${I.grip}</span>` : I.chev}</div>`).join('')}</div>`;
@@ -338,7 +381,7 @@ function pubWho() {
   return `<div style="display:flex;align-items:center;gap:10px">${S.pub.photo ? `<img src="${esc(S.pub.photo)}" alt="" referrerpolicy="no-referrer" style="width:40px;height:40px;border-radius:20px;object-fit:cover">` : ''}<div style="font-size:14px;line-height:1.3"><div style="font-weight:600">Shelf: ${esc(S.pub.name || 'a friend')}</div><div style="color:var(--text2)">view only</div></div></div>`;
 }
 function metaBadge(b) {
-  if (b.status === 'done' && b.rating && (!ro() || S.pub.showR)) return `<span class="stars">${'★'.repeat(b.rating)}</span>`;
+  if (b.status === 'done' && b.rating && (!ro() || S.pub.showR)) return `<span class="stars">${'★'.repeat(Math.max(0, Math.min(5, Math.trunc(+b.rating) || 0)))}</span>`;
   if (b.status === 'dropped') return '<span class="dropped">Skipped</span>';
   return '';
 }
@@ -346,7 +389,7 @@ function metaLine(b) {
   if (b.status === 'reading') return [b.start ? 'since ' + shortDate(b.start) : '', b.format].filter(Boolean).join(' · ');
   if (b.status === 'queue') return [b.genre, b.year].filter(Boolean).join(' · ');
   if (b.status === 'done') return b.end ? shortDate(b.end) : '';
-  return b.why || '';
+  return !ro() || S.pub.showR ? (b.why || '') : '';   // the reason for skipping is a private note: shown on a public shelf only together with ratings and reviews
 }
 function metaShort(b) { return b.status === 'done' ? shortDate(b.end) : b.status === 'reading' ? (b.format || '') : (b.genre || ''); }
 
@@ -357,7 +400,7 @@ function searchHTML() {
   let html = `<div class="head"><h1 class="serif h1">Search</h1></div><div style="height:12px"></div>
     <div class="search">${I.search}<label for="q" class="sr">Title, author or ISBN</label><input id="q" value="${esc(S.q)}" placeholder="Title, author or ISBN" autocomplete="off" enterkeyhint="search"></div>
     <div class="btn2"><button data-act="scan">${I.scan}Scan barcode</button><button data-act="manual">${I.pen}Add manually</button></div>`;
-  if (mine.length) html += `<h2 class="serif h2">On my shelves</h2>${mine.map(b => `<button class="row" data-open="${b.id}"><div style="width:46px;height:69px;flex:none">${coverHTML(b, 'mini', 46)}</div><div class="info"><div class="t" style="font-size:16px">${esc(b.title)}</div><div class="a" style="font-size:14px">${esc(b.author || '')} · ${STATUS[b.status].toLowerCase()}</div></div></button>`).join('')}`;
+  if (mine.length) html += `<h2 class="serif h2">On my shelves</h2>${mine.map(b => `<button class="row" data-open="${esc(b.id)}"><div style="width:46px;height:69px;flex:none">${coverHTML(b, 'mini', 46)}</div><div class="info"><div class="t" style="font-size:16px">${esc(b.title)}</div><div class="a" style="font-size:14px">${esc(b.author || '')} · ${esc(statusName(b.status).toLowerCase())}</div></div></button>`).join('')}`;
   if (q.length >= 2) {
     html += `<h2 class="serif h2">In the book database</h2>`;
     if (S.searching && !S.results.length) html += '<div class="empty" style="padding:24px">Searching…</div>';
@@ -389,7 +432,7 @@ function runSearch() {
 
 // ===================== Book search in open databases =====================
 const GENRES = { fiction: 'Fiction', 'juvenile fiction': 'Children', biography: 'Biography', 'biography & autobiography': 'Biography', history: 'History', science: 'Science', psychology: 'Psychology', 'business & economics': 'Business', 'self-help': 'Self-help', philosophy: 'Philosophy', 'computers': 'Technology', poetry: 'Poetry', travel: 'Travel', religion: 'Religion', 'health & fitness': 'Health', cooking: 'Cooking', art: 'Art', education: 'Education', 'political science': 'Politics', 'social science': 'Society', 'literary criticism': 'Literary criticism', drama: 'Drama', 'true crime': 'True crime', 'comics & graphic novels': 'Comics' };
-const mapGenre = g => { if (!g) return ''; const k = String(g).toLowerCase().split('/')[0].trim(); return GENRES[k] || LEGACY[g] || ''; };
+const mapGenre = g => { if (!g) return ''; const k = String(g).toLowerCase().split('/')[0].trim(); return (Object.hasOwn(GENRES, k) ? GENRES[k] : '') || (Object.hasOwn(LEGACY, g) ? LEGACY[g] : '') || ''; };
 const stripTags = s => String(s || '').replace(/<br\s*\/?>/gi, '\n').replace(/<\/p>/gi, '\n').replace(/<[^>]+>/g, '').replace(/&quot;/g, '"').replace(/&amp;/g, '&').replace(/&#39;/g, "'").replace(/\n{3,}/g, '\n\n').trim();
 const cutDesc = s => { s = stripTags(s); return s.length > 900 ? s.slice(0, 900).replace(/\s+\S*$/, '') + '…' : s; };
 function fromGoogle(it) {
@@ -495,7 +538,7 @@ function quotesHTML() {
   return `<button class="rb" data-go="lib" aria-label="Back">${I.back}</button>
     <h1 class="serif h1" style="margin:14px 0 12px">Quotes</h1>
     <div class="search" style="margin-bottom:14px">${I.search}<label for="qq" class="sr">Search quotes</label><input id="qq" value="${esc(S.qq)}" placeholder="A word from a quote, a book or an author" autocomplete="off"></div>
-    ${L.length ? L.map(x => `<button class="q rise" data-open="${x.b.id}"><div class="qt">«${esc(x.text)}»</div><div class="qm"><div style="width:22px;height:33px">${coverHTML(x.b, 'mini', 22)}</div>${esc(x.b.title)}${x.page ? ' · p. ' + esc(x.page) : ''}</div></button>`).join('')
+    ${L.length ? L.map(x => `<button class="q rise" data-open="${esc(x.b.id)}"><div class="qt">«${esc(x.text)}»</div><div class="qm"><div style="width:22px;height:33px">${coverHTML(x.b, 'mini', 22)}</div>${esc(x.b.title)}${x.page ? ' · p. ' + esc(x.page) : ''}</div></button>`).join('')
       : `<div class="empty"><b>${S.quotes.length ? 'Nothing found' : 'No quotes yet'}</b>${S.quotes.length ? '' : 'Open a book and add a quote or note at the bottom of its card.'}</div>`}`;
 }
 
@@ -605,7 +648,7 @@ document.addEventListener('change', e => {
   const sh = { ...(S.profile.share || {}) };
   sh[k] = e.target.checked;
   if (k === 'on' && sh.on && !sh.id) sh.id = randId();
-  if (k === 'on' && !sh.on && sh.id) store.deletePublic(sh.id);
+  if (k === 'on' && !sh.on && sh.id) store.deletePublic(sh.id);   // reports its own error
   S.profile = { ...S.profile, share: sh };
   store.saveProfile(S.user.uid, { share: sh });
   render();
@@ -622,7 +665,7 @@ function publicData() {
     uid: S.user.uid, name: (S.user.name || '').split(' ')[0], photo: S.user.photo || '', showR, showQ, updated: Date.now(),
     books: S.books.map(b => ({ id: b.id, title: b.title, author: b.author, genre: b.genre, year: b.year, pages: b.pages, format: b.format, cover: b.cover,
       desc: (b.desc || '').slice(0, 600), status: b.status, start: b.start, end: b.end, order: b.order, created: b.created,
-      rating: showR ? b.rating : 0, review: showR ? b.review : '', why: b.why })),
+      rating: showR ? b.rating : 0, review: showR ? b.review : '', why: showR ? b.why : '' })),
     quotes: showQ ? S.quotes.map(q => ({ id: q.id, bookId: q.bookId, page: q.page, text: q.text, created: q.created })) : []
   };
 }
@@ -637,10 +680,10 @@ async function shareLink() {
 }
 function newLink() {
   const sh = { ...(S.profile.share || {}) };
-  if (sh.id) store.deletePublic(sh.id);
+  if (sh.id) store.deletePublic(sh.id);   // if this fails the store shows why, and the old link still works
   sh.id = randId(); S.profile = { ...S.profile, share: sh };
   store.saveProfile(S.user.uid, { share: sh }); publishNow(); render();
-  toast('Done: the old link no longer works');
+  toast('New link created. The old link is being switched off');
 }
 
 // ===================== Layers: menus and sheets =====================
@@ -802,19 +845,19 @@ function openBookNow(id) {
       <h2 class="serif">${esc(b.title)}</h2><div class="au">${esc(b.author || 'Unknown author')}</div>
       <div class="mt">${esc([b.genre, b.year, b.pages ? b.pages + ' pages' : '', b.format].filter(Boolean).join(' · '))}</div></div>
       <div class="sh-body">
-      ${ro() ? `<div style="text-align:center;margin-top:18px;font-weight:600;color:var(--accent)">${STATUS[b.status]}</div>`
+      ${ro() ? `<div style="text-align:center;margin-top:18px;font-weight:600;color:var(--accent)">${esc(statusName(b.status))}</div>`
         : `<div class="seg" style="margin-top:18px">${[['queue', 'To read'], ['reading', 'Reading'], ['done', 'Read'], ['dropped', 'Skipped']].map(([k, t]) => `<button data-st="${k}" class="${b.status === k ? 'on' : ''}">${t}</button>`).join('')}</div>`}
       ${b.status !== 'queue' ? `<div class="lbl">Reading</div><div class="grp">
-        <div class="gi"><span class="grow">Started</span><span class="val">${fmtDate(b.start)}</span></div>
-        ${b.status === 'done' || b.status === 'dropped' ? `<div class="gi"><span class="grow">${b.status === 'done' ? 'Finished' : 'Skipped'}</span><span class="val">${fmtDate(b.end)}${days != null ? ' · ' + days + ' ' + plural(days, 'day', 'days') : ''}</span></div>` : ''}
+        <div class="gi"><span class="grow">Started</span><span class="val">${esc(fmtDate(b.start))}</span></div>
+        ${b.status === 'done' || b.status === 'dropped' ? `<div class="gi"><span class="grow">${b.status === 'done' ? 'Finished' : 'Skipped'}</span><span class="val">${esc(fmtDate(b.end))}${days != null ? ' · ' + days + ' ' + plural(days, 'day', 'days') : ''}</span></div>` : ''}
         ${b.status === 'done' && showR ? `<div class="gi"><span class="grow">Rating</span><span>${[1, 2, 3, 4, 5].map(n => `<button class="star ${n <= (b.rating || 0) ? 'on' : ''}" data-rate="${n}" aria-label="Rating ${n}" ${ro() ? 'disabled' : ''}>★</button>`).join('')}</span></div>` : ''}
-        ${b.status === 'dropped' ? `<div class="gi"><span class="grow">Why</span><span class="val" style="max-width:62%">${esc(b.why || '—')}</span></div>` : ''}
+        ${b.status === 'dropped' && showR ? `<div class="gi"><span class="grow">Why</span><span class="val" style="max-width:62%">${esc(b.why || '—')}</span></div>` : ''}
         ${ro() ? '' : `<button class="gi btn" data-edit>Edit dates</button>`}
       </div>` : ro() ? '' : `<div class="grp" style="margin-top:14px"><button class="gi btn" data-top>Read next</button></div>`}
       ${b.review && showR ? `<div class="lbl">Review</div><div class="tile desc">${esc(b.review)}</div>` : ''}
       ${b.desc ? `<div class="lbl">About the book</div><div class="desc ${descOpen ? '' : 'clamp'}">${esc(b.desc)}</div>${b.desc.length > 260 ? `<button class="more" data-more>${descOpen ? 'Show less' : 'More'}</button>` : ''}` : ''}
       ${showQ ? `<div class="lbl">Quotes and notes · ${qs.length}</div>
-        ${qs.map(q => `<div class="q"><div class="qt">«${esc(q.text)}»</div><div class="qm">${q.page ? 'p. ' + esc(q.page) : ''}</div>${ro() ? '' : `<button class="x" data-delq="${q.id}" aria-label="Delete quote">${delArmed === q.id ? '<span style="color:var(--danger);font-size:12px;font-weight:700">Delete?</span>' : I.x.replace('<svg', '<svg width="12" height="12"')}</button>`}</div>`).join('')}
+        ${qs.map(q => `<div class="q"><div class="qt">«${esc(q.text)}»</div><div class="qm">${q.page ? 'p. ' + esc(q.page) : ''}</div>${ro() ? '' : `<button class="x" data-delq="${esc(q.id)}" aria-label="Delete quote">${delArmed === q.id ? '<span style="color:var(--danger);font-size:12px;font-weight:700">Delete?</span>' : I.x.replace('<svg', '<svg width="12" height="12"')}</button>`}</div>`).join('')}
         ${ro() ? (qs.length ? '' : '<div class="foot">None yet</div>') : `<div class="addq"><label for="np" class="sr">Page</label><input id="np" inputmode="numeric" placeholder="p." style="width:68px" value="${esc(newP)}"><label for="nq" class="sr">Quote or note</label><input id="nq" placeholder="Quote or note" style="flex:1" value="${esc(newQ)}"><button class="rb" data-addq aria-label="Add quote" style="background:var(--accent);color:var(--on-accent);box-shadow:none">${I.plus.replace('<svg', '<svg width="18" height="18"')}</button></div><div class="err" id="qErr"></div>`}` : ''}
       ${ro() ? '' : `<div class="grp" style="margin-top:26px"><button class="gi danger center" data-del>${delArmed === 'book' ? 'Tap again to delete the book' : 'Delete book'}</button></div>`}
       </div>`;
@@ -1052,7 +1095,7 @@ function previewImport(rows, name) {
         <div class="foot">${esc(name)}. Books already on your shelf won’t be duplicated: only the fields from the file, such as reading dates, will be updated.</div>
         <div class="grp" style="margin-top:14px"><label class="gi"><span class="grow">Fetch covers and descriptions</span><input type="checkbox" class="switch" id="impEnrich" ${enrich ? 'checked' : ''}></label></div>
         <div class="lbl">In the file</div>
-        <div class="grp">${plan.slice(0, 60).map(({ r, m }) => `<div class="gi"><div class="grow"><div style="font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(r.title)}</div><div style="font-size:13px;color:var(--text2)">${esc([r.author, r.status ? STATUS[r.status] : '', r.end ? 'read ' + shortDate(r.end) : ''].filter(Boolean).join(' · '))}</div></div><span style="font-size:12px;color:${m ? 'var(--text2)' : 'var(--accent)'};font-weight:600">${m ? 'update' : 'new'}</span></div>`).join('')}</div>
+        <div class="grp">${plan.slice(0, 60).map(({ r, m }) => `<div class="gi"><div class="grow"><div style="font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(r.title)}</div><div style="font-size:13px;color:var(--text2)">${esc([r.author, r.status ? statusName(r.status) : '', r.end ? 'read ' + shortDate(r.end) : ''].filter(Boolean).join(' · '))}</div></div><span style="font-size:12px;color:${m ? 'var(--text2)' : 'var(--accent)'};font-weight:600">${m ? 'update' : 'new'}</span></div>`).join('')}</div>
         ${plan.length > 60 ? `<div class="foot">…and ${plan.length - 60} more</div>` : ''}
       </div>`;
     el.querySelector('[data-x]').onclick = closeLayer;
@@ -1061,13 +1104,19 @@ function previewImport(rows, name) {
       const out = [], quotes = [];
       let order = Math.max(0, ...S.books.filter(b => b.status === 'queue').map(b => b.order ?? 0));
       plan.forEach(({ r, m }) => {
+        let finalId = '';
         const fields = {};
         Object.keys(r).forEach(k => { if (k[0] !== '_' && r[k] !== '' && r[k] != null && !(k === 'rating' && !r[k])) fields[k] = r[k]; });
         if (m) { const nb = { ...m, ...fields, id: m.id, looked: enrich ? false : m.looked, updated: Date.now() };
           if (fields.end && !fields.start && nb.start && nb.start.slice(0, fields.end.length) > fields.end) nb.start = '';   // the old start date is after the new end date
-          out.push(nb); }
-        else { const nb = newBook({ ...fields, status: fields.status || 'queue' }); if (nb.status === 'queue') nb.order = (order += 10); if (!enrich) nb.looked = true; out.push(r._full ? { ...nb, ...fields } : nb); }
-        if (r._quotes) r._quotes.forEach(q => { if (!S.quotes.some(x => x.id === q.id)) quotes.push(q); });
+          out.push(nb); finalId = nb.id; }
+        else { const nb = newBook({ ...fields, status: fields.status || 'queue' }); if (nb.status === 'queue') nb.order = (order += 10); if (!enrich) nb.looked = true;
+          const full = r._full ? { ...nb, ...fields } : nb;
+          if (!okId(full.id) || S.books.some(x => x.id === full.id)) full.id = uid8();   // ids from a file are only used if they are safe and free
+          if (!Object.hasOwn(STATUS, full.status)) full.status = 'queue';
+          if (typeof full.rating === 'number') full.rating = Math.max(0, Math.min(5, Math.round(full.rating)));
+          out.push(full); finalId = full.id; }
+        if (r._quotes) r._quotes.forEach(q => { const id = okId(q.id) ? q.id : uid8(); if (!S.quotes.some(x => x.id === id) && !quotes.some(x => x.id === id)) quotes.push({ ...q, id, bookId: finalId }); });
       });
       out.forEach(b => { const i = S.books.findIndex(x => x.id === b.id); if (i > -1) S.books[i] = b; else S.books.push(b); });
       closeLayer(); render();

@@ -1,5 +1,5 @@
 // Offline cache. Bump the version whenever files change.
-const CACHE = 'routes-v2';
+const CACHE = 'routes-v3';
 const FILES = ['./', 'index.html', 'app.js', 'maplibre-gl.css', 'maplibre-gl-worker.mjs', 'nozoom.js', 'config.js', 'manifest.webmanifest', 'icon-192.png', 'icon-512.png', 'apple-touch-icon.png'];
 
 self.addEventListener('install', e => {

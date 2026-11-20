@@ -7,13 +7,14 @@
 import { initializeApp } from 'firebase/app';
 import {
   initializeAuth, indexedDBLocalPersistence, browserLocalPersistence, browserPopupRedirectResolver,
-  GoogleAuthProvider, signInWithRedirect, getRedirectResult, onAuthStateChanged, signOut, reauthenticateWithPopup
+  GoogleAuthProvider, signInWithRedirect, getRedirectResult, onAuthStateChanged, reauthenticateWithPopup
 } from 'firebase/auth';
 import {
   initializeFirestore, getFirestore, persistentLocalCache, persistentSingleTabManager,
   collection, doc, setDoc, deleteDoc, getDocs, getDoc, onSnapshot, writeBatch
 } from 'firebase/firestore';
 import * as store from './store.js';
+import { signOutAndWipe } from './account.js';
 
 const CFG = (window.MOOD_CONFIG && window.MOOD_CONFIG.firebase) || {};
 export const accountAvailable = !!CFG.apiKey && !/^PASTE/.test(CFG.apiKey);
@@ -56,7 +57,8 @@ export function signIn() {
 }
 export async function signOutUser() {
   detach();
-  try { if (auth) await signOut(auth); } catch (e) {}
+  if (!auth) return;
+  try { await signOutAndWipe({ db, auth }, null); } catch (e) {}   // also deletes the offline copy of the account's data and reloads
 }
 
 // ---------- sync ----------

@@ -2,6 +2,22 @@
 
 All notable changes to Pocket Tools are listed here, newest first.
 
+## 2026-11-21
+
+Security hardening after an audit.
+
+- Bookshelf: friends links are treated as untrusted input. A public shelf is cleaned before it is shown (known fields only, ratings 0–5, statuses from the known set, covers and photos only as https links, valid dates and ids, capped lengths), every value is escaped where it is put into a page, and the reason for skipping a book is published only together with ratings and reviews. Turning a link off or making a new one now shows an error if the old shelf could not be removed. Importing a backup keeps only safe ids and known fields.
+- Firestore rules: habits, check-ins, books, quotes and the Bookshelf profile accept only the fields the apps write, with sizes limited; friends-link documents need a well-formed id, known fields and bounded lists, and an owner can list only their own shelves (used by Delete account to find old ones). The removed Lightmeter collections can now only be read and deleted. Nobody can list the users collection. Rules tests cover every change.
+- All Firebase apps: Sign out now also stops Firestore and deletes the offline copy of your data on the device (unsent changes get a few seconds to reach the server first), then reloads. Bookshelf also empties its cover cache and keeps at most 200 covers.
+- Delete account (Bookshelf): also removes older friends-link shelves that still carry your account id.
+- Mood and Weekly Digest reminders: only real push services (Google, Apple, Mozilla, Windows) are accepted as notification addresses; key and request sizes are limited; every send has a timeout and a time budget and runs in parallel; devices that fail five times in a row are dropped; test notifications are limited to one every 30 seconds; sign-in tokens must be RS256-signed.
+- Routes: the Transitous and vehicle proxies limit each visitor to 60 requests a minute, clamp numeric parameters, always answer as JSON with `nosniff`, and look up endpoints safely.
+- Video Call: new links use 20 random characters from the browser's cryptographic generator (links made earlier keep working). An incoming call now has to be answered with a button; a second caller while a call is on is turned away instead of replacing it.
+- Spend: a link with ?amount=…&merchant=… never saves by itself any more: a known shop pre-selects its category and one tap on Save confirms it. CSV export protects cells that start with = + - @ so spreadsheets do not run them as formulas.
+- All sites: Content-Security-Policy now also sets object-src, base-uri, form-action and frame-ancestors; every response gets X-Content-Type-Options, Referrer-Policy and a Permissions-Policy (camera and microphone only for Video Call, camera for the Bookshelf scanner, location and motion only for Routes).
+- Privacy page: mentions the OpenStreetMap tile fallback in Routes, the vehicle-position lookup and the account identifier stored with a friends link.
+- Repository: the release workflow gives secrets only to the steps that need them, installs without install scripts, uses pinned CLIs from `tools/deploy`, refuses commits that are not on main, runs its secret-using jobs in the `production` environment and no longer expands expressions inside scripts. New `SECURITY.md` details and a Security section in AGENTS.md. CI reports (does not fail on) `npm audit` findings and has tests for the push helpers (`npm run test:push`).
+
 ## 2026-11-20
 
 - Routes: many more connection options. One search now asks the routing service several slightly different questions at once (30-minute window with at least 8 options; only stops within a 5-minute walk; no changes at all; trains only) and merges the answers, because the service otherwise returns only the "best" few and drops useful alternatives such as a direct bus with a shorter walk or an S/R/KM train. Results are listed by departure time with the best connection (earliest arrival) highlighted, and "Later connections" loads the next window of every query.

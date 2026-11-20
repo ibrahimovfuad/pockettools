@@ -2,13 +2,14 @@
 import { initializeApp } from 'firebase/app';
 import {
   initializeAuth, indexedDBLocalPersistence, browserLocalPersistence, browserPopupRedirectResolver,
-  GoogleAuthProvider, signInWithRedirect, getRedirectResult, onAuthStateChanged, signOut
+  GoogleAuthProvider, signInWithRedirect, getRedirectResult, onAuthStateChanged
 } from 'firebase/auth';
 import {
   initializeFirestore, getFirestore, persistentLocalCache, persistentSingleTabManager,
   collection, doc, setDoc, onSnapshot
 } from 'firebase/firestore';
 import { $ } from './util.js';
+import { signOutAndWipe } from './account.js';
 import { demoData } from './demo.js';
 
 const CFG = (window.MOOD_CONFIG && window.MOOD_CONFIG.firebase) || {};
@@ -43,7 +44,7 @@ function firebaseBackend(onError) {
       onAuthStateChanged(auth, u => cb(u && { uid: u.uid, name: u.displayName || 'No name', email: u.email || '' }));
     },
     signIn() { const p = new GoogleAuthProvider(); p.setCustomParameters({ prompt: 'select_account' }); return signInWithRedirect(auth, p); },
-    signOut() { subs.forEach(f => f()); subs = []; return signOut(auth); },
+    signOut() { return signOutAndWipe({ db, auth }, () => { subs.forEach(f => f()); subs = []; }); },
     firebase: () => ({ db, auth }),
     stop() { subs.forEach(f => f()); subs = []; },
     // on[name](docs, fromCache) for every collection in LISTS

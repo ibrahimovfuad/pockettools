@@ -2,6 +2,8 @@
 
   pt.py changed BASE [HEAD]   print the deployable folders whose deployed files changed between two commits
   pt.py check BASE [HEAD]     run the repository checks (cache bump, English UI, CSP, required links, homepage cards, shared files)
+  pt.py folders               print every deployable folder
+  pt.py validate DIR...       print the folders back, or exit with an error if one is not a known deployable folder
   pt.py sites DIR...          find (or create) the Netlify site of each folder;
                               prints "<dir> <site_id> <domain> <firebase> <publish dir> <functions dir or ->"
 
@@ -24,6 +26,15 @@ def git(*args):
 def folders():
     out = [str(p.parent.relative_to(ROOT)) for p in sorted(ROOT.glob('apps/*/netlify.toml')) if p.parent.name != '_template']
     return out + (['site'] if (ROOT / 'site/netlify.toml').exists() else [])
+
+
+def validate(dirs):
+    """Release inputs come from people and from job outputs: accept only folders that really exist in this repository."""
+    known = set(folders())
+    bad = [d for d in dirs if d not in known]
+    if bad:
+        sys.exit(f'Unknown folder(s): {", ".join(repr(b[:60]) for b in bad)}. Known: {", ".join(sorted(known))}')
+    return list(dict.fromkeys(dirs))
 
 
 def toml_value(folder, key, text=None):
@@ -50,7 +61,10 @@ def served(folder, rel):
 
 def deployed(folder, rel):
     _, functions = layout(folder)
-    return served(folder, rel) or bool(functions and rel.startswith(functions + '/') and not rel.lower().endswith('.md'))
+    if rel.lower().endswith('.md'):
+        return False
+    # netlify/lib holds code that the functions import (it is bundled into them), so it ships with them
+    return served(folder, rel) or bool(functions and (rel.startswith(functions + '/') or rel.startswith(functions.rsplit('/', 1)[0] + '/lib/')))
 
 
 def changed_files(base, head='HEAD'):
@@ -210,7 +224,7 @@ def ensure_site(folder):
 
 
 def sites(dirs):
-    for d in dirs:
+    for d in validate(dirs):
         s = ensure_site(d)
         domain = (s.get('ssl_url') or s.get('url') or '').split('//')[-1].rstrip('/')
         publish, functions = layout(d)
@@ -228,6 +242,10 @@ if __name__ == '__main__':
             print(d)
     elif cmd == 'check':
         sys.exit(check(*rest))
+    elif cmd == 'folders':
+        print('\n'.join(folders()))
+    elif cmd == 'validate':
+        print('\n'.join(validate(rest)))
     elif cmd == 'sites':
         sites(rest)
     else:

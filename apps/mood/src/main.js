@@ -1,13 +1,13 @@
 import { initializeApp } from 'firebase/app';
 import {
   initializeAuth, indexedDBLocalPersistence, browserLocalPersistence, browserPopupRedirectResolver,
-  GoogleAuthProvider, signInWithRedirect, getRedirectResult, onAuthStateChanged, signOut
+  GoogleAuthProvider, signInWithRedirect, getRedirectResult, onAuthStateChanged
 } from 'firebase/auth';
 import {
   initializeFirestore, getFirestore, persistentLocalCache, persistentSingleTabManager,
   collection, doc, setDoc, deleteDoc, onSnapshot, serverTimestamp
 } from 'firebase/firestore';
-import { initAccount, registry } from './account.js';
+import { initAccount, registry, signOutAndWipe } from './account.js';
 
 // ================= Utilities =================
 const $ = id => document.getElementById(id);
@@ -54,7 +54,7 @@ function firebaseBackend() {
       onAuthStateChanged(auth, u => cb(u && { uid: u.uid, name: u.displayName || 'No name', email: u.email || '', photo: u.photoURL }));
     },
     signIn() { const p = new GoogleAuthProvider(); p.setCustomParameters({ prompt: 'select_account' }); return signInWithRedirect(auth, p); },
-    signOut() { this.stop(); return signOut(auth); },
+    signOut() { return signOutAndWipe({ db, auth }, () => this.stop()); },
     listen(uid, cb) {
       if (unsub) unsub();
       unsub = onSnapshot(collection(db, 'users', uid, 'days'), snap => {
@@ -492,6 +492,7 @@ async function reminderApi(body) {
     const tok = await store.token();
     if (!tok) return null;
     const r = await fetch('/api/reminder', { method: 'POST', headers: { 'content-type': 'application/json', authorization: 'Bearer ' + tok }, body: JSON.stringify(body) });
+    if (r.status === 429) return { throttled: true };   // test notifications are limited to one every 30 seconds
     return r.ok ? r.json() : null;
   } catch (e) { return null; }
 }
@@ -537,6 +538,7 @@ $('remOn').onchange = async () => {
 };
 $('remTest').onclick = async () => {
   const r = await reminderApi({ action: 'test' });
+  if (r && r.throttled) return remNote('Please wait a few seconds before sending another test.');
   remNote(r && r.devices ? 'Sent. The notification should arrive in a few seconds.' : 'Could not send it. Turn the reminder off and on again.');
 };
 $('remHour').onchange = async () => {

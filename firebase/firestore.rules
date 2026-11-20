@@ -3,7 +3,14 @@ service cloud.firestore {
   match /databases/{database}/documents {
     function owner(uid) { return request.auth != null && request.auth.uid == uid; }
 
-    // Настроение: оценки дней
+    // Small validation helpers. d is the document being written (request.resource.data), k a field name.
+    function str(d, k, max) { return d[k] is string && d[k].size() > 0 && d[k].size() <= max; }
+    function optStr(d, k, max) { return !(k in d) || (d[k] is string && d[k].size() <= max); }
+    function optNum(d, k) { return !(k in d) || d[k] is number; }
+    function optBool(d, k) { return !(k in d) || d[k] is bool; }
+    function optStrNum(d, k, max) { return !(k in d) || d[k] is number || (d[k] is string && d[k].size() <= max); }
+
+    // Mood: day ratings
     match /users/{uid}/days/{day} {
       allow read, delete: if owner(uid);
       allow create, update: if owner(uid)
@@ -14,40 +21,89 @@ service cloud.firestore {
         && (!('note' in request.resource.data) || (request.resource.data.note is string && request.resource.data.note.size() <= 1000));
     }
 
-    // Привычки
+    // Habits: one document per habit. freq is {type: 'days', days: [0..6]} or {type: 'weekly', times: n}.
+    function validFreq(f) {
+      return f is map && f.keys().hasOnly(['type', 'days', 'times'])
+        && (!('type' in f) || f.type in ['days', 'weekly'])
+        && (!('days' in f) || (f.days is list && f.days.size() <= 7))
+        && optNum(f, 'times');
+    }
     match /users/{uid}/habits/{id} {
       allow read, delete: if owner(uid);
       allow create, update: if owner(uid)
-        && request.resource.data.name is string
-        && request.resource.data.name.size() > 0 && request.resource.data.name.size() <= 60;
+        && request.resource.data.keys().hasOnly(['name', 'emoji', 'color', 'freq', 'target', 'unit', 'archived', 'start', 'created', 'kind'])
+        && str(request.resource.data, 'name', 60)
+        && optStr(request.resource.data, 'emoji', 32)
+        && optStr(request.resource.data, 'unit', 20)
+        && optStr(request.resource.data, 'start', 10)
+        && optNum(request.resource.data, 'color') && optNum(request.resource.data, 'target') && optNum(request.resource.data, 'created')
+        && optBool(request.resource.data, 'archived')
+        && (!('kind' in request.resource.data) || request.resource.data.kind in ['build', 'quit'])
+        && (!('freq' in request.resource.data) || validFreq(request.resource.data.freq));
     }
 
-    // Отметки привычек: один документ на привычку за год
+    // Habit check-ins: one document per habit and year (id "<habitId>_<year>"). d maps "MM-DD" to the count for that
+    // day and n maps "MM-DD" to a note, so each holds at most 366 entries.
     match /users/{uid}/logs/{id} {
       allow read, delete: if owner(uid);
-      allow create, update: if owner(uid) && request.resource.data.habitId is string;
+      allow create, update: if owner(uid)
+        && id.size() <= 120
+        && request.resource.data.keys().hasOnly(['habitId', 'year', 'd', 'n'])
+        && str(request.resource.data, 'habitId', 100)
+        && (!('year' in request.resource.data) || (request.resource.data.year is int && request.resource.data.year >= 1900 && request.resource.data.year <= 2200))
+        && (!('d' in request.resource.data) || (request.resource.data.d is map && request.resource.data.d.size() <= 400))
+        && (!('n' in request.resource.data) || (request.resource.data.n is map && request.resource.data.n.size() <= 400));
     }
-  
-    // Полка: профиль (настройки ссылки для друзей), книги и цитаты
+
+    // Bookshelf: the profile holds the settings of the friends link ({share: {on, id, showR, showQ}}); the app writes
+    // nothing else. Extra top-level fields are tolerated (up to 8) so that an older profile document never blocks a save.
+    // Reading is "get" only: nobody lists the users collection.
+    function validShare(s) {
+      return s is map && s.size() <= 8
+        && optBool(s, 'on') && optBool(s, 'showR') && optBool(s, 'showQ')
+        && (!('id' in s) || (s.id is string && s.id.matches('^[A-Za-z0-9]{4,32}$')));
+    }
     match /users/{uid} {
-      allow read, write: if owner(uid);
+      allow get, delete: if owner(uid);
+      allow create, update: if owner(uid)
+        && request.resource.data.keys().size() <= 8
+        && (!('share' in request.resource.data) || validShare(request.resource.data.share));
     }
+    // Books: the fields the app writes (title is the only required one). Free text is capped generously;
+    // year and pages are strings or numbers because book databases return either.
     match /users/{uid}/books/{id} {
       allow read, delete: if owner(uid);
       allow create, update: if owner(uid)
-        && request.resource.data.title is string
-        && request.resource.data.title.size() > 0 && request.resource.data.title.size() <= 300;
+        && request.resource.data.keys().hasOnly(['title', 'author', 'genre', 'year', 'pages', 'format', 'isbn', 'cover', 'desc', 'status', 'start', 'end', 'rating', 'review', 'why', 'order', 'created', 'updated', 'looked'])
+        && str(request.resource.data, 'title', 300)
+        && optStr(request.resource.data, 'author', 500)
+        && optStr(request.resource.data, 'genre', 100)
+        && optStr(request.resource.data, 'format', 40)
+        && optStr(request.resource.data, 'isbn', 40)
+        && optStr(request.resource.data, 'cover', 8000)
+        && optStr(request.resource.data, 'desc', 20000)
+        && optStr(request.resource.data, 'review', 20000)
+        && optStr(request.resource.data, 'why', 5000)
+        && optStr(request.resource.data, 'start', 20)
+        && optStr(request.resource.data, 'end', 20)
+        && optStrNum(request.resource.data, 'year', 20)
+        && optStrNum(request.resource.data, 'pages', 20)
+        && (!('status' in request.resource.data) || request.resource.data.status in ['queue', 'reading', 'done', 'dropped'])
+        && (!('rating' in request.resource.data) || (request.resource.data.rating is number && request.resource.data.rating >= 0 && request.resource.data.rating <= 5))
+        && optNum(request.resource.data, 'order') && optNum(request.resource.data, 'created') && optNum(request.resource.data, 'updated')
+        && optBool(request.resource.data, 'looked');
     }
     match /users/{uid}/quotes/{id} {
       allow read, delete: if owner(uid);
       allow create, update: if owner(uid)
-        && request.resource.data.text is string && request.resource.data.text.size() <= 2000;
+        && request.resource.data.keys().hasOnly(['bookId', 'page', 'text', 'created', 'updated'])
+        && request.resource.data.text is string && request.resource.data.text.size() <= 2000
+        && optStr(request.resource.data, 'bookId', 100)
+        && optStrNum(request.resource.data, 'page', 20)
+        && optNum(request.resource.data, 'created') && optNum(request.resource.data, 'updated');
     }
 
     // Spend: categories, expenses and one settings document (budget, merchant rules)
-    function str(d, k, max) { return d[k] is string && d[k].size() > 0 && d[k].size() <= max; }
-    function optStr(d, k, max) { return !(k in d) || (d[k] is string && d[k].size() <= max); }
-    function optNum(d, k) { return !(k in d) || d[k] is number; }
     match /users/{uid}/spend_categories/{id} {
       allow read, delete: if owner(uid);
       allow create, update: if owner(uid)
@@ -137,64 +193,37 @@ service cloud.firestore {
           && optNum(request.resource.data, 'ts')));
     }
 
-    // Lightmeter: gear, rolls of film and the frames logged on them
-    match /users/{uid}/lm_cameras/{id} {
-      allow read, delete: if owner(uid);
-      allow create, update: if owner(uid)
-        && request.resource.data.keys().hasOnly(['name', 'fastest', 'slowest'])
-        && str(request.resource.data, 'name', 40)
-        && request.resource.data.fastest is number && request.resource.data.slowest is number;
-    }
-    match /users/{uid}/lm_lenses/{id} {
-      allow read, delete: if owner(uid);
-      allow create, update: if owner(uid)
-        && request.resource.data.keys().hasOnly(['name', 'focal', 'widest', 'smallest'])
-        && str(request.resource.data, 'name', 40)
-        && request.resource.data.widest is number && request.resource.data.smallest is number
-        && optNum(request.resource.data, 'focal');
-    }
-    match /users/{uid}/lm_films/{id} {
-      allow read, delete: if owner(uid);
-      allow create, update: if owner(uid)
-        && request.resource.data.keys().hasOnly(['name', 'iso', 'exposures'])
-        && str(request.resource.data, 'name', 40)
-        && request.resource.data.iso is number
-        && request.resource.data.exposures is int && request.resource.data.exposures > 0 && request.resource.data.exposures < 1000;
-    }
-    match /users/{uid}/lm_rolls/{id} {
-      allow read, delete: if owner(uid);
-      allow create, update: if owner(uid)
-        && request.resource.data.keys().hasOnly(['filmId', 'filmName', 'iso', 'exposures', 'started', 'finished', 'status', 'ts', 'cameraId', 'cameraName'])
-        && str(request.resource.data, 'filmName', 40)
-        && request.resource.data.iso is number && request.resource.data.exposures is int
-        && request.resource.data.status in ['loaded', 'finished']
-        && optStr(request.resource.data, 'filmId', 100) && optStr(request.resource.data, 'cameraId', 100)
-        && optStr(request.resource.data, 'cameraName', 40)
-        && optStr(request.resource.data, 'started', 10) && optStr(request.resource.data, 'finished', 10)
-        && optNum(request.resource.data, 'ts');
-    }
-    match /users/{uid}/lm_frames/{id} {
-      allow read, delete: if owner(uid);
-      allow create, update: if owner(uid)
-        && request.resource.data.keys().hasOnly(['rollId', 'n', 'aperture', 'shutter', 'iso', 'ev', 'dev', 'lensId', 'ts', 'lat', 'lng', 'note'])
-        && str(request.resource.data, 'rollId', 100)
-        && request.resource.data.n is int && request.resource.data.n > 0 && request.resource.data.n < 1000
-        && request.resource.data.aperture is number && request.resource.data.shutter is number
-        && request.resource.data.iso is number && request.resource.data.ev is number
-        && optNum(request.resource.data, 'dev') && optNum(request.resource.data, 'ts')
-        && optNum(request.resource.data, 'lat') && optNum(request.resource.data, 'lng')
-        && optStr(request.resource.data, 'lensId', 100)
-        && optStr(request.resource.data, 'note', 300);
-    }
+    // Lightmeter (removed app): its collections can still be read and deleted by their owner (export and "Delete account"
+    // need that), but nothing can be written any more.
+    match /users/{uid}/lm_cameras/{id} { allow read, delete: if owner(uid); }
+    match /users/{uid}/lm_lenses/{id} { allow read, delete: if owner(uid); }
+    match /users/{uid}/lm_films/{id} { allow read, delete: if owner(uid); }
+    match /users/{uid}/lm_rolls/{id} { allow read, delete: if owner(uid); }
+    match /users/{uid}/lm_frames/{id} { allow read, delete: if owner(uid); }
 
-    // Полка для друзей: копия только для чтения, открывается по ссылке без входа.
-    // Списком документы получить нельзя — только зная точный код из ссылки.
+    // Bookshelf friends link: a read-only copy of a shelf, opened without signing in by its exact id. Nobody can list
+    // the collection, except that a signed-in owner can list their own shelves (where uid == their uid): "Delete account"
+    // uses that to find shelves left over from earlier links.
+    // "uid" is stored so that the rules can tell who owns a shelf; it is visible to whoever has the link.
+    // Ids are the random codes the app generates (letters and digits, 4 to 32 characters).
+    function validPublic(id, d) {
+      return id.matches('^[A-Za-z0-9]{4,32}$')
+        && d.keys().hasOnly(['uid', 'name', 'photo', 'showR', 'showQ', 'updated', 'books', 'quotes'])
+        && d.keys().hasAll(['uid'])
+        && optStr(d, 'name', 100) && optStr(d, 'photo', 1000)
+        && optBool(d, 'showR') && optBool(d, 'showQ') && optNum(d, 'updated')
+        && (!('books' in d) || (d.books is list && d.books.size() <= 5000))
+        && (!('quotes' in d) || (d.quotes is list && d.quotes.size() <= 10000));
+    }
     match /public/{id} {
       allow get: if true;
-      allow list: if false;
-      allow create: if request.auth != null && request.resource.data.uid == request.auth.uid;
-      allow update: if request.auth != null && resource.data.uid == request.auth.uid && request.resource.data.uid == request.auth.uid;
-      allow delete: if request.auth != null && resource.data.uid == request.auth.uid;
+      allow list: if request.auth != null && resource.data.uid == request.auth.uid;
+      allow create: if request.auth != null && request.resource.data.uid == request.auth.uid && validPublic(id, request.resource.data);
+      allow update: if request.auth != null && resource.data.uid == request.auth.uid && request.resource.data.uid == request.auth.uid
+        && validPublic(id, request.resource.data);
+      // Deleting a shelf that does not exist is a no-op, so it is allowed: without this, turning a link off (or Delete
+      // account) fails with "permission denied" when the shelf was never published or is already gone.
+      allow delete: if request.auth != null && (resource == null || resource.data.uid == request.auth.uid);
     }
   }
 }

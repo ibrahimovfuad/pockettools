@@ -1,6 +1,7 @@
 // Offline cache. Bump the version whenever files change.
-const CACHE = 'polka-v13';
+const CACHE = 'polka-v14';
 const COVERS = 'polka-covers';
+const MAX_COVERS = 200;   // the cover cache is trimmed to the newest entries; the page also deletes it on sign-out
 const FILES = ['/', '/index.html', '/app.js', '/nozoom.js', '/onboarding.js', '/config.js', '/manifest.webmanifest', '/icon-192.png', '/icon-512.png', '/apple-touch-icon.png', '/zxing_reader.wasm'];
 
 self.addEventListener('install', e => {
@@ -22,7 +23,7 @@ self.addEventListener('fetch', e => {
       const hit = await cache.match(e.request);
       if (hit) return hit;
       const r = await fetch(e.request);
-      if (r.ok || r.type === 'opaque') cache.put(e.request, r.clone());
+      if (r.ok || r.type === 'opaque') cache.put(e.request, r.clone()).then(() => trimCovers(cache)).catch(() => {});
       return r;
     }));
     return;
@@ -33,6 +34,11 @@ self.addEventListener('fetch', e => {
   if (!nav && !FILES.includes(key)) return;
   e.respondWith(caches.open(CACHE).then(cache => networkFirst(cache, nav ? '/index.html' : e.request, key)));
 });
+
+async function trimCovers(cache) {
+  const keys = await cache.keys();   // oldest first
+  await Promise.all(keys.slice(0, Math.max(0, keys.length - MAX_COVERS)).map(k => cache.delete(k)));
+}
 
 // Network first: an online launch always gets the latest version. The cache is only a fallback
 // for offline use or a very slow network (after 4 s), so updates never need a reinstall.

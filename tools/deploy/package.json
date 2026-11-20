@@ -1,0 +1,9 @@
+{
+  "name": "pockettools-deploy-tooling",
+  "private": true,
+  "description": "Pinned CLIs used by .github/workflows/release.yml. Installed with npm ci --ignore-scripts so that no install script ever runs in a job that holds deploy secrets.",
+  "dependencies": {
+    "firebase-tools": "15.37.0",
+    "netlify-cli": "27.20.1"
+  }
+}

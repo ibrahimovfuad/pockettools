@@ -19,6 +19,7 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           fetch-depth: 0
+          persist-credentials: false
       - name: Check the sites
         id: check
         run: |
@@ -29,9 +30,10 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           TITLE: 'Site monitor: a site is down or out of date'
+          FAILED: ${{ steps.check.outputs.failed }}
         run: |
           NUM="$(gh issue list --state open --search "\"$TITLE\" in:title" --json number --jq '.[0].number // empty')"
-          if [ "${{ steps.check.outputs.failed }}" != "0" ]; then
+          if [ "$FAILED" != "0" ]; then
             if [ -n "$NUM" ]; then gh issue comment "$NUM" --body-file report.md
             else gh issue create --title "$TITLE" --body-file report.md; fi
             exit 1

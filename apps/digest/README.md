@@ -89,3 +89,7 @@ Same names as the Mood app. Set them on the Netlify site for this app; never com
 ## License
 
 MIT — see the [root LICENSE](../../LICENSE).
+
+## Security notes
+
+The notification function (`netlify/functions/reminder.mjs`) only stores push subscriptions whose address is on a real push service (Google, Apple, Mozilla or Windows), limits request sizes, accepts only RS256-signed Firebase tokens, allows one test notification per 30 seconds per user, and drops a device after five failed sends in a row. The shared code is `shared/push-core.mjs` (copied to `netlify/lib/`). A Firebase ID token stays valid for up to an hour after an account is deleted, so a stale session can briefly save settings again; such a record is removed by the weekly job as soon as its devices stop answering.

@@ -15,7 +15,17 @@ const ENDPOINTS = {
   stoptimes: [['v6/stoptimes', 'v5/stoptimes'], ['stopId', 'time', 'n', 'arriveBy', 'window', 'mode', 'language', 'pageCursor', 'direction', 'radius'], 10],
   trip: [['v6/trip', 'v5/trip'], ['tripId', 'language', 'withScheduledSkippedStops'], 8]
 };
-const json = (o, status, extra = {}) => new Response(JSON.stringify(o), { status, headers: { 'content-type': 'application/json', ...extra } });
+// Every answer is JSON and may not be sniffed as anything else.
+const SAFE = { 'content-type': 'application/json', 'x-content-type-options': 'nosniff' };
+const json = (o, status, extra = {}) => new Response(JSON.stringify(o), { status, headers: { ...SAFE, ...extra } });
+
+// Numeric parameters are clamped to what the app can reasonably ask for [min, max], so the proxy cannot be used to
+// make Transitous do unbounded work (huge search windows, thousands of results).
+const LIMITS = {
+  numItineraries: [1, 12], searchWindow: [0, 7200], maxTransfers: [0, 8], maxPreTransitTime: [0, 3600], maxPostTransitTime: [0, 3600],
+  numResults: [1, 30], n: [1, 60], window: [0, 7200], radius: [0, 2000], placeBias: [0, 10]
+};
+const clampNum = (v, [lo, hi]) => { const n = Number(v); return Number.isFinite(n) ? String(Math.min(hi, Math.max(lo, Math.trunc(n)))) : null; };
 
 // the API version that worked last time (module state lives as long as the function instance)
 const version = {};
@@ -40,13 +50,17 @@ async function call(paths, qs, key) {
 export default async (req) => {
   if (req.method !== 'GET') return json({ error: 'method' }, 405);
   const name = new URL(req.url).pathname.replace(/^.*\/api\/transitous\//, '').replace(/\/+$/, '');
-  const ep = ENDPOINTS[name];
+  const ep = Object.hasOwn(ENDPOINTS, name) ? ENDPOINTS[name] : null;
   if (!ep) return json({ error: 'unknown endpoint' }, 404);
   const [paths, allowed, ttl] = ep;
 
   const src = new URL(req.url).searchParams;
   const qs = new URLSearchParams();
-  for (const [k, v] of src) if (allowed.includes(k) && v.length <= 500) qs.append(k, v);
+  for (const [k, v] of src) {
+    if (!allowed.includes(k) || v.length > 500) continue;
+    if (Object.hasOwn(LIMITS, k)) { const n = clampNum(v, LIMITS[k]); if (n !== null) qs.append(k, n); continue; }
+    qs.append(k, v);
+  }
   if (!qs.toString()) return json({ error: 'missing parameters' }, 400);
 
   try {
@@ -55,7 +69,7 @@ export default async (req) => {
     return new Response(body, {
       status: r.status,
       headers: {
-        'content-type': r.headers.get('content-type') || 'application/json',
+        ...SAFE,
         // browsers keep it very briefly; Netlify's CDN shares it between users
         'cache-control': r.ok ? `public, max-age=${Math.min(ttl, 10)}` : 'no-store',
         ...(r.ok ? { 'netlify-cdn-cache-control': `public, s-maxage=${ttl}, stale-while-revalidate=${ttl}` } : {})
@@ -66,4 +80,9 @@ export default async (req) => {
   }
 };
 
-export const config = { path: '/api/transitous/*' };
+// Netlify rate limit per visitor (IP address): 60 requests a minute is far more than the app makes
+// (a route search is about 4 requests, a map move a few geocodes). Beyond that the answer is 429.
+export const config = {
+  path: '/api/transitous/*',
+  rateLimit: { action: 'rate_limit', aggregateBy: ['ip', 'domain'], windowSize: 60, windowLimit: 60 }
+};
