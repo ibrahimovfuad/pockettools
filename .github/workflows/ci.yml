@@ -110,6 +110,10 @@ jobs:
           node-version: 22
       - run: npm ci --no-audit --no-fund
       - run: npm run test:account
+      - name: Push helpers (need the Mood function dependencies)
+        run: |
+          (cd apps/mood && npm ci --omit=dev --ignore-scripts --no-audit --no-fund)
+          npm run test:push
 
   audit:
     # Report only: lists known vulnerabilities in production dependencies. It never fails the build and is not part of "CI ok".

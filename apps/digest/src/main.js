@@ -266,6 +266,7 @@ async function reminderApi(body) {
     const tok = await store.token();
     if (!tok) return null;
     const r = await fetch('/api/reminder', { method: 'POST', headers: { 'content-type': 'application/json', authorization: 'Bearer ' + tok }, body: JSON.stringify(body) });
+    if (r.status === 429) return { throttled: true };   // test notifications are limited to one every 30 seconds
     return r.ok ? r.json() : null;
   } catch (e) { return null; }
 }
@@ -313,6 +314,7 @@ async function togglePush() {
 }
 async function testPush() {
   const r = await reminderApi({ action: 'test' });
+  if (r && r.throttled) return setRem({ note: 'Please wait a few seconds before sending another test.' });
   setRem({ note: r && r.devices ? 'Sent. The notification should arrive in a few seconds.' : 'Could not send it. Turn the reminder off and on again.' });
 }
 

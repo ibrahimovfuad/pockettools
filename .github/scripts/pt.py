@@ -61,7 +61,10 @@ def served(folder, rel):
 
 def deployed(folder, rel):
     _, functions = layout(folder)
-    return served(folder, rel) or bool(functions and rel.startswith(functions + '/') and not rel.lower().endswith('.md'))
+    if rel.lower().endswith('.md'):
+        return False
+    # netlify/lib holds code that the functions import (it is bundled into them), so it ships with them
+    return served(folder, rel) or bool(functions and (rel.startswith(functions + '/') or rel.startswith(functions.rsplit('/', 1)[0] + '/lib/')))
 
 
 def changed_files(base, head='HEAD'):

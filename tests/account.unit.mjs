@@ -21,7 +21,8 @@ function memory(seed = {}, { failOn = null } = {}) {
     async profile() { return db.profile; },
     async removeProfile() { db.profile = null; },
     async publicDoc(c, id) { return db.public[id] || null; },
-    async removePublic(c, id) { delete db.public[id]; }
+    async removePublic(c, id) { delete db.public[id]; },
+    async publicIdsByOwner() { return Object.keys(db.public).filter(id => db.public[id].uid === 'u1'); }   // the signed-in user in these tests is u1
   };
 }
 
@@ -98,6 +99,23 @@ test('delete Bookshelf data removes books, quotes, the profile and the public sh
   assert.equal(rep.failed.length, 0);
   assert.equal(Object.keys(m.db.collections.books).length, 0);                               // 1000 docs = 3 batches
   assert.equal(m.db.profile, null);
+  assert.deepEqual(Object.keys(m.db.public), ['other']);
+});
+
+test('delete Bookshelf data also removes older shelves of the same owner that the profile no longer points to', async () => {
+  serverLog();
+  const m = memory({ ...seed(), public: { abc123: { uid: 'u1' }, old999: { uid: 'u1' }, other: { uid: 'u2' } } });
+  const rep = await deleteAppData({ ...base(m), app: 'bookshelf' });
+  assert.equal(rep.failed.length, 0);
+  assert.deepEqual(Object.keys(m.db.public), ['other']);
+});
+
+test('deleting still works when the rules do not allow looking up shelves by owner (only the profile id is used)', async () => {
+  serverLog();
+  const m = memory(seed());
+  m.publicIdsByOwner = async () => []; // what firestoreAdapter returns on permission-denied
+  const rep = await deleteAppData({ ...base(m), app: 'bookshelf' });
+  assert.equal(rep.failed.length, 0);
   assert.deepEqual(Object.keys(m.db.public), ['other']);
 });
 

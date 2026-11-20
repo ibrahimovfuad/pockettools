@@ -5,7 +5,7 @@
 //   Needs a free API key in the Netlify environment variable UM_WARSAW_API_KEY; without it the function answers
 //   503 {"error":"not-configured"} and the app falls back to timetable-based positions.
 //   Terms: show "Miasto Stołeczne Warszawa", the download time and a link to https://api.um.warszawa.pl.
-const json = (o, status = 200, extra = {}) => new Response(JSON.stringify(o), { status, headers: { 'content-type': 'application/json', 'cache-control': 'no-store', ...extra } });
+const json = (o, status = 200, extra = {}) => new Response(JSON.stringify(o), { status, headers: { 'content-type': 'application/json', 'x-content-type-options': 'nosniff', 'cache-control': 'no-store', ...extra } });
 
 const PROVIDERS = {
   async warsaw(line, type) {
@@ -39,7 +39,7 @@ export default async (req) => {
   if (req.method !== 'GET') return json({ error: 'method' }, 405);
   const url = new URL(req.url);
   const name = url.pathname.replace(/^.*\/api\/vehicles\//, '').replace(/\/+$/, '');
-  const provider = PROVIDERS[name];
+  const provider = Object.hasOwn(PROVIDERS, name) ? PROVIDERS[name] : null;
   if (!provider) return json({ error: 'unknown provider' }, 404);
   const line = (url.searchParams.get('line') || '').trim();
   const type = url.searchParams.get('type') === 'tram' ? 'tram' : 'bus';
@@ -50,4 +50,9 @@ export default async (req) => {
   } catch (e) { return json({ error: 'upstream' }, 502); }
 };
 
-export const config = { path: '/api/vehicles/:provider' };
+// Netlify rate limit per visitor (IP address). The app polls a line every 12 seconds while vehicles are followed,
+// so 60 a minute leaves room for several lines; beyond that the answer is 429.
+export const config = {
+  path: '/api/vehicles/:provider',
+  rateLimit: { action: 'rate_limit', aggregateBy: ['ip', 'domain'], windowSize: 60, windowLimit: 60 }
+};

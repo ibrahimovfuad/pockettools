@@ -6,6 +6,7 @@
 //   deleteAppData()       delete only the collections and server stores of the calling app; stay signed in
 //   deleteAccount()       delete the data of every app, then the Google sign-in account itself
 //   initAccount(ctx)      wire the "Account & data" section (accountHTML()) to those three
+//   signOutAndWipe(fb, stop, after)  sign out and leave no offline copy of the data behind on this device (used by every app's Sign out)
 //
 // ctx = {
 //   app: 'mood',                       key in user-data.json
@@ -15,8 +16,8 @@
 //   stopListening: () => void          optional: detach Firestore listeners before the account is removed
 // }
 import {
-  collection, deleteDoc, doc, documentId, getDocFromServer, getDocsFromServer, limit, orderBy, query, startAfter,
-  terminate, clearIndexedDbPersistence, writeBatch
+  collection, deleteDoc, doc, documentId, getDocFromServer, getDocsFromServer, limit, orderBy, query, startAfter, where,
+  terminate, clearIndexedDbPersistence, waitForPendingWrites, writeBatch
 } from 'firebase/firestore';
 import { deleteUser, reauthenticateWithPopup, GoogleAuthProvider, signOut } from 'firebase/auth';
 import REG from './user-data.json' with { type: 'json' };
@@ -76,7 +77,18 @@ export function firestoreAdapter(db, uid) {
     async profile() { const s = await withTimeout(getDocFromServer(doc(db, 'users', uid)), NET_TIMEOUT, 'Reading'); return s.exists() ? s.data() : null; },
     async removeProfile() { await withTimeout(deleteDoc(doc(db, 'users', uid)), NET_TIMEOUT, 'Deleting'); },
     async publicDoc(c, id) { const s = await withTimeout(getDocFromServer(doc(db, c, id)), NET_TIMEOUT, 'Reading'); return s.exists() ? s.data() : null; },
-    async removePublic(c, id) { await withTimeout(deleteDoc(doc(db, c, id)), NET_TIMEOUT, 'Deleting'); }
+    async removePublic(c, id) { await withTimeout(deleteDoc(doc(db, c, id)), NET_TIMEOUT, 'Deleting'); },
+    // ids of every public document that carries this user's uid (shelves left over from earlier links). The rules allow
+    // exactly this query. If the rules do not know it yet (permission-denied), there is nothing more to find.
+    async publicIdsByOwner(c) {
+      try {
+        const q = query(collection(db, c), where('uid', '==', uid), limit(50));
+        return (await withTimeout(getDocsFromServer(q), NET_TIMEOUT, 'Reading')).docs.map(d => d.id);
+      } catch (e) {
+        if (e && typeof e.code === 'string' && e.code.includes('permission-denied')) return [];
+        throw e;
+      }
+    }
   };
 }
 
@@ -123,6 +135,24 @@ async function unsubscribeThisDevice() {
   const reg = await navigator.serviceWorker.getRegistration();
   const sub = reg && reg.pushManager && await reg.pushManager.getSubscription();
   return sub ? sub.unsubscribe() : false;
+}
+
+// ---------------------------------------------------------------- sign out
+// Firestore keeps an offline copy of the signed-in user's data in IndexedDB. On a shared phone or browser it must not
+// outlive the sign-in, so signing out: stops the listeners, gives unsent changes a few seconds to reach the server,
+// signs out, stops Firestore and deletes its local cache, and reloads to the sign-in screen (a stopped Firestore
+// instance cannot be used again, so a clean start is the simplest correct state).
+const PENDING_WAIT = 4000;
+export async function wipeLocalCache(db) {
+  try { await terminate(db); await clearIndexedDbPersistence(db); } catch (e) { /* e.g. another tab still has it open: nothing more to do */ }
+}
+export async function signOutAndWipe(fb, stopListening, beforeReload) {
+  if (stopListening) { try { stopListening(); } catch (e) { /* ignore */ } }
+  try { await Promise.race([waitForPendingWrites(fb.db), new Promise(res => setTimeout(res, PENDING_WAIT))]); } catch (e) { /* ignore */ }
+  await signOut(fb.auth);
+  await wipeLocalCache(fb.db);
+  if (beforeReload) { try { await beforeReload(); } catch (e) { /* ignore */ } }   // an app's own local data, e.g. Bookshelf's cover cache
+  location.reload();
 }
 
 // ---------------------------------------------------------------- context
@@ -223,9 +253,12 @@ export async function deleteApps(raw, ids, onProgress) {
       appOk = await step(rep, onProgress, `${a.name}: ${a.publicShelf.what}`, 'firestore', async () => {
         const p = await ctx.adapter.profile();
         shelfId = p ? pick(p, a.publicShelf.idPath) : null;
-        if (typeof shelfId !== 'string' || !shelfId) return 'none';
-        await ctx.adapter.removePublic(a.publicShelf.collection, shelfId);
-        return 'deleted';
+        const ids = new Set(typeof shelfId === 'string' && shelfId ? [shelfId] : []);
+        // shelves of earlier links (a new link replaces the old one, which is deleted, but a failed delete could leave one behind)
+        if (ctx.adapter.publicIdsByOwner) (await ctx.adapter.publicIdsByOwner(a.publicShelf.collection)).forEach(i => ids.add(i));
+        if (!ids.size) return 'none';
+        for (const i of ids) await ctx.adapter.removePublic(a.publicShelf.collection, i);
+        return ids.size === 1 ? 'deleted' : `${ids.size} shelves deleted`;
       }) && appOk;
     }
     for (const c of a.collections) {
@@ -266,7 +299,7 @@ export async function deleteAccount(raw, onProgress, opts = {}) {
   if (!ok) return rep;
   rep.accountDeleted = true;
   try { await signOut(ctx.fb.auth); } catch (e) { /* the account is gone; nothing to sign out of */ }
-  try { await terminate(ctx.fb.db); await clearIndexedDbPersistence(ctx.fb.db); } catch (e) { /* cached copy stays only if the browser refuses */ }
+  await wipeLocalCache(ctx.fb.db);
   try { localStorage.clear(); } catch (e) { /* ignore */ }
   return rep;
 }

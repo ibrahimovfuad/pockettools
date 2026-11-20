@@ -1,13 +1,13 @@
 import { initializeApp } from 'firebase/app';
 import {
   initializeAuth, indexedDBLocalPersistence, browserLocalPersistence, browserPopupRedirectResolver,
-  GoogleAuthProvider, signInWithRedirect, getRedirectResult, onAuthStateChanged, signOut
+  GoogleAuthProvider, signInWithRedirect, getRedirectResult, onAuthStateChanged
 } from 'firebase/auth';
 import {
   initializeFirestore, getFirestore, persistentLocalCache, persistentSingleTabManager,
   collection, doc, setDoc, deleteDoc, onSnapshot, deleteField
 } from 'firebase/firestore';
-import { initAccount } from './account.js';
+import { initAccount, signOutAndWipe } from './account.js';
 
 // ================= Utilities =================
 const $ = id => document.getElementById(id);
@@ -55,6 +55,14 @@ function press(el, onTap, onLong) {
 const CFG = (window.MOOD_CONFIG && window.MOOD_CONFIG.firebase) || {};
 const DEMO = !CFG.apiKey || /^PASTE/.test(CFG.apiKey) || location.hash === '#demo';
 
+// Only these fields are stored (firebase/firestore.rules lists the same ones); anything else on a habit is dropped before saving.
+const HABIT_KEYS = ['name', 'emoji', 'color', 'freq', 'target', 'unit', 'archived', 'start', 'created', 'kind'];
+function habitData(h) {
+  const d = {};
+  for (const k of HABIT_KEYS) if (h[k] !== undefined) d[k] = h[k];
+  if (typeof d.emoji === 'string') d.emoji = d.emoji.slice(0, 32);
+  return d;
+}
 function logPatch(hid, isoDate, c, note) {
   const md = isoDate.slice(5);
   return { habitId: hid, year: Number(isoDate.slice(0, 4)), d: { [md]: c > 0 ? c : deleteField() }, n: { [md]: note ? note : deleteField() } };
@@ -85,7 +93,7 @@ function firebaseBackend() {
       onAuthStateChanged(auth, u => cb(u && { uid: u.uid, name: u.displayName || 'No name', email: u.email || '', photo: u.photoURL }));
     },
     signIn() { const p = new GoogleAuthProvider(); p.setCustomParameters({ prompt: 'select_account' }); return signInWithRedirect(auth, p); },
-    signOut() { subs.forEach(f => f()); subs = []; return signOut(auth); },
+    signOut() { return signOutAndWipe({ db, auth }, () => { subs.forEach(f => f()); subs = []; }); },
     firebase: () => ({ db, auth }),
     stop() { subs.forEach(f => f()); subs = []; },
     listen(uid, onHabits, onLogs) {
@@ -96,7 +104,7 @@ function firebaseBackend() {
       ];
     },
     // no await: on a bad connection the write goes to the local cache first and syncs later
-    saveHabit(uid, h) { const { id, ...data } = h; setDoc(doc(db, 'users', uid, 'habits', id), data).catch(fail('Not saved')); },
+    saveHabit(uid, h) { setDoc(doc(db, 'users', uid, 'habits', h.id), habitData(h)).catch(fail('Not saved')); },
     deleteHabit(uid, id, years) {
       deleteDoc(doc(db, 'users', uid, 'habits', id)).catch(fail('Not deleted'));
       years.forEach(y => deleteDoc(doc(db, 'users', uid, 'logs', `${id}_${y}`)).catch(() => {}));

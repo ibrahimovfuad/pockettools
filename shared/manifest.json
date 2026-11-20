@@ -4,5 +4,6 @@
   "onboarding.js": ["apps/bookshelf/public", "apps/habits/public", "apps/mood/public", "apps/spend/public", "apps/digest/public"],
   "config.js": ["apps/bookshelf/public", "apps/habits/public", "apps/mood/public", "apps/spend/public", "apps/digest/public", "apps/routes/public"],
   "account.js": ["apps/bookshelf/src", "apps/habits/src", "apps/mood/src", "apps/spend/src", "apps/digest/src", "apps/routes/src"],
+  "push-core.mjs": ["apps/mood/netlify/lib", "apps/digest/netlify/lib"],
   "user-data.json": ["apps/bookshelf/src", "apps/habits/src", "apps/mood/src", "apps/spend/src", "apps/digest/src", "apps/routes/src"]
 }

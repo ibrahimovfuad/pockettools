@@ -1,13 +1,13 @@
 import { initializeApp } from 'firebase/app';
 import {
   initializeAuth, indexedDBLocalPersistence, browserLocalPersistence, browserPopupRedirectResolver,
-  GoogleAuthProvider, signInWithRedirect, getRedirectResult, onAuthStateChanged, signOut
+  GoogleAuthProvider, signInWithRedirect, getRedirectResult, onAuthStateChanged
 } from 'firebase/auth';
 import {
   initializeFirestore, getFirestore, persistentLocalCache, persistentSingleTabManager,
   collection, doc, setDoc, deleteDoc, onSnapshot
 } from 'firebase/firestore';
-import { initAccount } from './account.js';
+import { initAccount, signOutAndWipe } from './account.js';
 
 // ================= Utilities =================
 const $ = id => document.getElementById(id);
@@ -104,7 +104,7 @@ function firebaseBackend() {
       onAuthStateChanged(auth, u => cb(u && { uid: u.uid, name: u.displayName || 'No name', email: u.email || '' }));
     },
     signIn() { const p = new GoogleAuthProvider(); p.setCustomParameters({ prompt: 'select_account' }); return signInWithRedirect(auth, p); },
-    signOut() { subs.forEach(f => f()); subs = []; return signOut(auth); },
+    signOut() { return signOutAndWipe({ db, auth }, () => { subs.forEach(f => f()); subs = []; }); },
     firebase: () => ({ db, auth }),
     stop() { subs.forEach(f => f()); subs = []; },
     listen(uid, on) {
