@@ -1,10 +1,15 @@
 # Releases: the only way anything reaches production.
 #
-#   • Actions → Release → Run workflow  (deploys what changed since the last v* tag, then creates the next tag)
-#   • or create a tag v… yourself (GitHub → Releases → Draft a new release), which deploys what changed since the previous tag
+# Creating a tag is manual, deploying is automatic: pushing a tag v… deploys what changed since the previous v* tag.
+#   • npm run release   (scripts/release.mjs: tags the latest origin/main as vYYYY.MM.DD and pushes the tag)
+#   • or GitHub → Releases → Draft a new release (target main, new tag v…), also possible from a phone
+# This workflow never creates tags.
+#
+# Emergency redeploy: Actions → Release → Run workflow with apps = all (or folders separated by spaces) deploys the
+# current main without a tag. Normal releases do not need it.
 #
 # Only folders whose shipped files changed are deployed (README, src/ and tests alone never cost a deploy), and
-# Firestore rules are published only if they changed — after their emulator tests pass.
+# Firestore rules are published only if they changed since the previous tag — after their emulator tests pass.
 # Secrets: NETLIFY_AUTH_TOKEN, FIREBASE_SERVICE_ACCOUNT (rules), FIREBASE_AUTH_ADMIN (auth domains).
 name: Release
 
@@ -12,8 +17,7 @@ on:
   workflow_dispatch:
     inputs:
       apps:
-        description: 'What to deploy: "changed" (since the last v* tag), "all", or folders separated by spaces (e.g. apps/spend site)'
-        default: changed
+        description: 'Emergency redeploy of main, no tag: "all" or folders separated by spaces (e.g. apps/spend site)'
         required: true
   push:
     tags: ['v*']
@@ -40,25 +44,33 @@ jobs:
       - name: Work out what changed
         id: plan
         env:
-          WANT: ${{ github.event.inputs.apps || 'changed' }}
+          WANT: ${{ github.event.inputs.apps }}
         run: |
-          if [ "${{ github.event_name }}" = "push" ]; then FROM="${GITHUB_SHA}^"; else FROM=HEAD; fi
-          BASE="$(git describe --tags --abbrev=0 --match 'v*' "$FROM" 2>/dev/null || true)"
-          if [ -z "$BASE" ] && [ "$WANT" = changed ]; then
-            echo "::error::No earlier v* tag to compare with. Run again with apps = all, or list the folders to deploy."; exit 1
+          BASE=""; RULES=false
+          if [ "${{ github.event_name }}" = "push" ]; then
+            # A new v* tag: deploy what changed since the previous v* tag
+            BASE="$(git describe --tags --abbrev=0 --match 'v*' "${GITHUB_SHA}^" 2>/dev/null || true)"
+            if [ -z "$BASE" ]; then
+              echo "::error::No earlier v* tag to compare with. Run the workflow manually with apps = all."; exit 1
+            fi
+            APPS="$(python3 .github/scripts/pt.py changed "$BASE" "$GITHUB_SHA" | tr '\n' ' ')"
+            if ! git diff --quiet "$BASE" "$GITHUB_SHA" -- firebase/firestore.rules firebase.json; then RULES=true; fi
+          else
+            # Emergency redeploy of main: explicit folders, no tag, no rules
+            if [ "$GITHUB_REF" != "refs/heads/main" ]; then
+              echo "::error::Run this workflow on main."; exit 1
+            fi
+            case "$WANT" in
+              all) APPS="$(python3 -c 'import sys; sys.path.insert(0, ".github/scripts"); import pt; print(" ".join(pt.folders()))')" ;;
+              *)   APPS="$WANT" ;;
+            esac
           fi
-          case "$WANT" in
-            changed) APPS="$(python3 .github/scripts/pt.py changed "$BASE" HEAD | tr '\n' ' ')" ;;
-            all)     APPS="$(python3 -c 'import sys; sys.path.insert(0, ".github/scripts"); import pt; print(" ".join(pt.folders()))')" ;;
-            *)       APPS="$WANT" ;;
-          esac
-          RULES=false
-          if [ -n "$BASE" ] && ! git diff --quiet "$BASE" HEAD -- firebase/firestore.rules firebase.json; then RULES=true; fi
           echo "base=$BASE" >> "$GITHUB_OUTPUT"
           echo "apps=$APPS" >> "$GITHUB_OUTPUT"
           echo "rules=$RULES" >> "$GITHUB_OUTPUT"
           {
             echo "### Release plan"
+            echo "- Trigger: ${{ github.event_name }}"
             echo "- Compared with: \`${BASE:-—}\`"
             echo "- Deploy: ${APPS:-nothing}"
             echo "- Firestore rules: $RULES"
@@ -123,22 +135,3 @@ jobs:
         env:
           EXTRA_DOMAINS: ${{ steps.domains.outputs.list }}
         run: TOKEN="$(gcloud auth print-access-token)" python3 .github/scripts/add_auth_domains.py
-
-  tag:
-    # A run started from the Actions tab ends by creating the tag, so the next release compares with this one.
-    needs: [plan, rules, apps]
-    if: always() && github.event_name == 'workflow_dispatch' && needs.plan.result == 'success' && needs.rules.result != 'failure' && needs.apps.result != 'failure'
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
-        with:
-          fetch-depth: 0
-      - name: Create the release tag
-        run: |
-          if [ -n "$(git tag --points-at HEAD --list 'v*')" ]; then echo "HEAD is already tagged."; exit 0; fi
-          T="v$(date -u +%Y.%m.%d)"; N=1; NAME="$T"
-          while git rev-parse -q --verify "refs/tags/$NAME" >/dev/null; do N=$((N + 1)); NAME="$T.$N"; done
-          git tag "$NAME" && git push origin "$NAME"
-          echo "Tagged **$NAME**" >> "$GITHUB_STEP_SUMMARY"

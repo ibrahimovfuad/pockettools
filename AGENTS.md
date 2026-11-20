@@ -35,15 +35,16 @@ A monorepo of small, independent PWAs. Each app is its own Netlify site, deploye
 
 ## Releases
 
-Netlify never builds from Git (`ignore = "exit 0"` in every `netlify.toml`). `.github/workflows/release.yml` deploys with the Netlify CLI:
+Netlify never builds from Git (`ignore = "exit 0"` in every `netlify.toml`). Creating a release tag is manual; deploying is automatic: `.github/workflows/release.yml` deploys with the Netlify CLI whenever a `v*` tag is pushed.
 
-- **Actions → Release → Run workflow** deploys every folder whose shipped files changed since the last `v*` tag and then creates the next tag (`vYYYY.MM.DD`, `.2`, `.3` … for more releases on one day). Input `all` or a list of folders forces a deploy.
-- Creating a `v*` tag yourself (GitHub → Releases) does the same for the tagged commit.
+- **Normal release: `npm run release`.** `scripts/release.mjs` fetches `origin/main`, shows the commits and the folders that would ship (changed since the last `v*` tag), asks for confirmation, then tags `origin/main` as `vYYYY.MM.DD` (`.2`, `.3` … for more releases on one day) and pushes the tag. Options: `--dry-run` (change nothing), `--yes` (no question), `--force` (tag even if nothing deployable changed).
+- Without a computer (for example from a phone): GitHub → Releases → Draft a new release, new tag `v…`, target `main` → Publish. The same workflow runs for the tag.
+- The workflow never creates tags. **Actions → Release → Run workflow** is only an emergency redeploy of `main`: input `all` or a list of folders (e.g. `apps/spend site`); it creates no tag and does not touch the Firestore rules.
 - "Shipped files" are an app's publish directory and functions. README/Markdown, `src/`, tests and package files alone never trigger a deploy — but a rebuilt `public/app.js` does.
-- Firestore rules are published in the same run, only when they changed, and only after their tests pass.
+- Firestore rules are published in a tag run, only when they changed since the previous tag, and only after their tests pass.
 - `.github/workflows/monitor.yml` checks every morning that all sites answer and run the latest release, and opens an issue if not.
 
-Tools: `npm run new-app` (new app from `apps/_template`, registered everywhere), `npm run sync-shared`, `npm run check`, `npm run test:smoke`, `npm run test:rules`. Dependabot opens monthly update PRs; an app dependency update needs a rebuild and a CACHE bump before CI passes.
+Tools: `npm run release`, `npm run new-app` (new app from `apps/_template`, registered everywhere), `npm run sync-shared`, `npm run check`, `npm run test:smoke`, `npm run test:rules`. Dependabot opens monthly update PRs; an app dependency update needs a rebuild and a CACHE bump before CI passes.
 
 ## Before committing
 
