@@ -43,7 +43,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        app: [bookshelf, digest, habits, mood, spend]
+        app: [bookshelf, digest, habits, mood, routes, spend]
     defaults:
       run:
         working-directory: apps/${{ matrix.app }}

@@ -105,6 +105,38 @@ service cloud.firestore {
         && request.resource.data.ts is number;
     }
 
+    // Routes: saved places, the last 10 searches and settings. Only what the user saves — no trips, no location history.
+    match /users/{uid}/routes_places/{id} {
+      allow read, delete: if owner(uid);
+      allow create, update: if owner(uid)
+        && id.matches('^[A-Za-z0-9_-]{1,40}$')
+        && request.resource.data.keys().hasOnly(['kind', 'name', 'sub', 'lat', 'lon', 'stopId', 'ts'])
+        && request.resource.data.keys().hasAll(['kind', 'name', 'lat', 'lon'])
+        && request.resource.data.kind in ['home', 'work', 'stop', 'place']
+        && str(request.resource.data, 'name', 120)
+        && optStr(request.resource.data, 'sub', 200)
+        && optStr(request.resource.data, 'stopId', 200)
+        && request.resource.data.lat is number && request.resource.data.lat >= -90 && request.resource.data.lat <= 90
+        && request.resource.data.lon is number && request.resource.data.lon >= -180 && request.resource.data.lon <= 180
+        && optNum(request.resource.data, 'ts');
+    }
+    match /users/{uid}/routes_meta/{id} {
+      allow read, delete: if owner(uid);
+      allow create, update: if owner(uid) && (
+        (id == 'settings'
+          && request.resource.data.keys().hasOnly(['direction', 'rotate', 'live', 'city', 'ts'])
+          && (!('direction' in request.resource.data) || request.resource.data.direction is bool)
+          && (!('rotate' in request.resource.data) || request.resource.data.rotate is bool)
+          && (!('live' in request.resource.data) || request.resource.data.live is bool)
+          && optStr(request.resource.data, 'city', 40)
+          && optNum(request.resource.data, 'ts'))
+        || (id == 'history'
+          && request.resource.data.keys().hasOnly(['items', 'ts'])
+          && request.resource.data.keys().hasAll(['items'])
+          && request.resource.data.items is list && request.resource.data.items.size() <= 10
+          && optNum(request.resource.data, 'ts')));
+    }
+
     // Lightmeter: gear, rolls of film and the frames logged on them
     match /users/{uid}/lm_cameras/{id} {
       allow read, delete: if owner(uid);

@@ -46,6 +46,13 @@
       "server": [
         { "what": "Sunday notification settings and push subscriptions", "url": "https://weeklydigest2.netlify.app/api/reminder" }
       ]
+    },
+    "routes": {
+      "name": "Routes",
+      "collections": [
+        { "id": "routes_places", "what": "your saved places (Home, Work, favourite stops)" },
+        { "id": "routes_meta", "what": "your Routes settings and last 10 searches" }
+      ]
     }
   },
   "legacy": {

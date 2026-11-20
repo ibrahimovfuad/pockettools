@@ -17,6 +17,7 @@ Every app lives in its own folder under [`apps/`](apps/) and is deployed as an i
 | [Bookshelf](apps/bookshelf) | Reading tracker with barcode scanning, quotes and a shareable shelf | JS, Firebase, zxing-wasm |
 | [Spend](apps/spend) | Log an expense in two taps — amount, then category; Apple Pay payments via a Shortcuts automation | JS, Firebase |
 | [Weekly Digest](apps/digest) | Your week in review as stories: mood, habits, spending and reading | JS, Firebase, Netlify Functions |
+| [Routes](apps/routes) | Ad-free public transport routes for Polish cities, with live vehicles | JS, Firebase, MapLibre, Netlify Functions |
 
 Each app folder has its own `README.md` with features, setup steps and deployment notes.
 

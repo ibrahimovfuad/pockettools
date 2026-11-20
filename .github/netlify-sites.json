@@ -9,6 +9,7 @@
     "apps/bookshelf": "shelff2",
     "apps/spend": "spendlog2",
     "apps/digest": "weeklydigest2",
+    "apps/routes": "pocketroutes2",
     "site": "pockettools2"
   }
 }
