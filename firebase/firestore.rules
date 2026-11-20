@@ -221,7 +221,9 @@ service cloud.firestore {
       allow create: if request.auth != null && request.resource.data.uid == request.auth.uid && validPublic(id, request.resource.data);
       allow update: if request.auth != null && resource.data.uid == request.auth.uid && request.resource.data.uid == request.auth.uid
         && validPublic(id, request.resource.data);
-      allow delete: if request.auth != null && resource.data.uid == request.auth.uid;
+      // Deleting a shelf that does not exist is a no-op, so it is allowed: without this, turning a link off (or Delete
+      // account) fails with "permission denied" when the shelf was never published or is already gone.
+      allow delete: if request.auth != null && (resource == null || resource.data.uid == request.auth.uid);
     }
   }
 }

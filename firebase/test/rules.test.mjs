@@ -282,15 +282,23 @@ describe('public shelves', () => {
     await assertFails(deleteDoc(doc(db(null), 'public/abc123')));
     await assertSucceeds(deleteDoc(doc(db(OWNER), 'public/abc123')));
   });
+  test('deleting a shelf that does not exist is harmless for a signed-in user and still refused for a visitor', async () => {
+    await assertSucceeds(deleteDoc(doc(db(OWNER), 'public/neverpublished')));
+    await assertFails(deleteDoc(doc(db(null), 'public/neverpublished')));
+    await seed('abc123', OWNER);
+    await assertFails(deleteDoc(doc(db(OTHER), 'public/abc123')));   // an existing shelf is still only deletable by its owner
+  });
   test('somebody else cannot overwrite an existing shelf with setDoc, with their own uid or the owner’s', async () => {
     await seed('abc123', OWNER);
     await assertFails(setDoc(doc(db(OTHER), 'public/abc123'), shelf(OTHER)));
     await assertFails(setDoc(doc(db(OTHER), 'public/abc123'), shelf(OWNER)));
     await assertFails(setDoc(doc(db(OTHER), 'public/abc123'), shelf(OTHER), { merge: true }));
     await assertFails(setDoc(doc(db(null), 'public/abc123'), shelf(OWNER)));
-    const kept = await env.withSecurityRulesDisabled(c => getDoc(doc(c.firestore(), 'public/abc123')));
-    assert.equal(kept.data().uid, OWNER);
-    assert.equal(kept.data().name, 'Fuad');
+    await env.withSecurityRulesDisabled(async c => {
+      const kept = await getDoc(doc(c.firestore(), 'public/abc123'));
+      assert.equal(kept.data().uid, OWNER);
+      assert.equal(kept.data().name, 'Fuad');
+    });
   });
   test('a shelf needs a well-formed id, known fields and bounded sizes', async () => {
     const put = (id, data) => setDoc(doc(db(OWNER), `public/${id}`), data);
