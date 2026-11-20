@@ -51,9 +51,8 @@ The screen always says which of the three it is using. Adding another city's API
 | `users/{uid}/routes_meta/settings` | `direction`, `rotate`, `live`, `city`, `ts` | owner only |
 | `users/{uid}/routes_meta/history` | `items` (the last 10 searched places), `ts` | owner only, at most 10 items |
 
-Settings → Account offers **Export my Routes data** (JSON), **Delete my Routes data** (removes these documents and the local copy, keeps the Google account) and **Delete account** (`deleteAccount()` in `src/account.js`). On the first sign-in the device data is merged with the account; a different Google account on the same device never inherits the previous person's places. Rules and tests: [`firebase/firestore.rules`](../../firebase/firestore.rules), [`firebase/test/rules.test.mjs`](../../firebase/test/rules.test.mjs).
+Settings → Account & data (the shared Pocket Tools section, `src/account.js` copied from `shared/`) offers **Export my data** (one JSON file with everything Pocket Tools stores about you), **Delete this app's data** (removes the `routes_*` documents; this phone's copy is cleared too when the sync sees them gone) and **Delete account** (every Pocket Tools app's data, then the Google sign-in account). On the first sign-in the device data is merged with the account; a different Google account on the same device never inherits the previous person's places. Rules and tests: [`firebase/firestore.rules`](../../firebase/firestore.rules), [`firebase/test/rules.test.mjs`](../../firebase/test/rules.test.mjs).
 
-> **Planned:** once the shared GDPR account flow (PR #9, `feat/gdpr-account`) is merged, Routes switches to it: register `routes` in `shared/user-data.json`, add `account.js` and `user-data.json` targets for `apps/routes/src` in `shared/manifest.json`, call `initAccount({ app: 'routes', getUser, getFirebase, demoKeys, stopListening })` and put `<div data-pta-host></div>` in Settings, plus the privacy link on the sign-in row. Until then `src/account.js` is a small self-contained version with `deleteAccount()`.
 
 ## Stack
 
@@ -65,7 +64,7 @@ public/maplibre-gl-worker.mjs  MapLibre's web worker, copied by the build and lo
 src/main.js                  screens, navigation, actions      src/views.js  HTML builders
 src/api.js                   Transitous client                 src/live.js   vehicle position providers
 src/map.js                   MapLibre wrapper                  src/locate.js position and compass
-src/store.js                 device storage, export/import     src/account.js sign-in, sync, delete
+src/store.js                 device storage, export/import     src/cloud.js   sign-in and sync; src/account.js (shared) export and delete
 netlify/functions/transitous.mjs  /api/transitous/*  proxy with User-Agent, endpoint whitelist and short cache
 netlify/functions/vehicles.mjs    /api/vehicles/warsaw  city vehicle API (optional key)
 ```

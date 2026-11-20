@@ -218,13 +218,11 @@ export function settings(c) {
   const a = c.account;
   const account = !c.accountAvailable ? '' : `<div class="sec">Account (optional)</div><div class="card">${a.signedIn ? `
       <div class="row"><span class="tx"><span class="t1">${esc(a.name)}</span><span class="t2">${esc(a.email)} · ${a.sync === 'ok' ? 'synced' : a.sync === 'syncing' ? 'syncing…' : a.sync === 'offline' ? 'offline, will sync later' : ''}</span></span></div>
-      <button class="row press link" data-act="signout"><span class="tx"><span class="t1">Sign out</span></span></button>
-      <button class="row press link" data-act="export-cloud"><span class="tx"><span class="t1">Export my Routes data</span><span class="t2">A JSON file with everything stored in your account</span></span>${ic('dl', 18)}</button>
-      <button class="row press danger" data-act="delete-data"><span class="tx"><span class="t1">Delete my Routes data</span><span class="t2">Removes saved places, history and settings from your account and this phone</span></span></button>
-      <button class="row press danger" data-act="delete-account"><span class="tx"><span class="t1">Delete account</span><span class="t2">Deletes your Routes data and your sign-in account</span></span></button>`
+      <button class="row press link" data-act="signout"><span class="tx"><span class="t1">Sign out</span></span></button>`
     : `<button class="row press link" data-act="signin"><span class="tx"><span class="t1">Sign in with Google</span><span class="t2">Keep saved places and settings in sync between your devices</span></span></button>`}</div>
+    ${a.signedIn ? '<div data-pta-host></div>' : ''}
     ${a.error ? `<div class="err" role="alert">${esc(a.error)}</div>` : ''}
-    <p class="hint">${a.signedIn ? 'Only what you save here is stored: places, your last 10 searches and these settings. Never your trips or where you have been.' : 'Optional. Routes works fully without an account; signing in only syncs what you save.'}</p>`;
+    <p class="hint">${a.signedIn ? 'Only what you save here is stored: places, your last 10 searches and these settings. Never your trips or where you have been.' : 'Optional. Routes works fully without an account; signing in only syncs what you save. <a href="https://pockettools2.netlify.app/privacy.html" target="_blank" rel="noopener">Privacy policy</a>'}</p>`;
   return `<div class="screen back-top" id="scr">
   <div class="bar"><button class="ib pos blue press" data-act="back" aria-label="Back">${ic('back', 24, 2.4)}</button></div>
   <h1 class="big">Settings</h1>

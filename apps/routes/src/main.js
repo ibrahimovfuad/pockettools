@@ -4,7 +4,9 @@ import * as api from './api.js';
 import * as loc from './locate.js';
 import { RouteMap } from './map.js';
 import { createTracker, snapshot } from './live.js';
-import { initAccount, accountAvailable, signIn, signOutUser, exportCloud, deleteMyData, deleteAccount } from './account.js';
+import { initAccount as initCloud, accountAvailable, signIn, signOutUser, currentUser, firebaseHandles, stopSync } from './cloud.js';
+import { initAccount } from './account.js';   // shared "Account & data" section (export, delete) — see shared/account.js
+const ACCOUNT = { app: 'routes', getUser: currentUser, getFirebase: firebaseHandles, demoKeys: [], stopListening: stopSync };
 import * as V from './views.js';
 import { $, esc, clock, dayLabel, until, ms, dist, walkMin, fmtDist, decodePolyline, cumulative, pointAt, modeKind, isTransit, lineName, toLocalInput, MODE_COLOR } from './util.js';
 import { CITIES, cityById, fold } from './cities.js';
@@ -356,6 +358,7 @@ function showTrack(cur) {
 function showSettings() {
   const d = store.get();
   app.innerHTML = V.settings({ places: d.places, settings: d.settings, account: accountState, accountAvailable });
+  if (accountState.signedIn) initAccount(ACCOUNT);
 }
 
 // ================= overlays =================
@@ -558,16 +561,7 @@ const A = {
   export: exportDialog, import: () => importDialog(''),
   'pick-city': () => {}, 'city-gps': () => {}, 'pick-p': () => {},   // handled by their own dialogs
   signin: async () => { try { await signIn(); } catch (e) { accountState = { ...accountState, error: 'Sign-in is not available right now.' }; showSettings(); } },
-  signout: async () => { await signOutUser(); showSettings(); },
-  'export-cloud': async () => { try { await saveJson('routes-my-data.json', await exportCloud()); } catch (e) { setAccountError('Could not export your data: ' + (e.message || e.code)); } },
-  'delete-data': async () => {
-    if (!await confirmDialog({ title: 'Delete my Routes data?', body: 'This permanently deletes your saved places, search history and settings from your account and from this phone. Your Google sign-in stays.', ok: 'Delete my data' })) return;
-    try { await deleteMyData(); showSettings(); } catch (e) { setAccountError('Could not delete your data: ' + (e.message || e.code)); }
-  },
-  'delete-account': async () => {
-    if (!await confirmDialog({ title: 'Delete account?', body: 'This permanently deletes your Routes data and your sign-in account. You may be asked to sign in with Google once more to confirm. This cannot be undone.', ok: 'Delete account' })) return;
-    try { await deleteAccount(); showSettings(); } catch (e) { setAccountError('Could not delete the account: ' + (e.message || e.code)); }
-  }
+  signout: async () => { await signOutUser(); showSettings(); }
 };
 function setAccountError(t) { accountState = { ...accountState, error: t }; if (stack[stack.length - 1].screen === 'settings') showSettings(); }
 
@@ -602,7 +596,7 @@ document.addEventListener('change', e => {
 });
 
 // ================= start =================
-initAccount(st => {
+initCloud(st => {
   accountState = st;
   if (stack[stack.length - 1].screen === 'settings' && !overlayEl) showSettings();
 });

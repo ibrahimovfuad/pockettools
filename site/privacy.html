@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Privacy policy — Pocket Tools</title>
+<meta name="description" content="What the Pocket Tools apps store about you, where, why, and how to export or delete it.">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<meta name="theme-color" content="#f2f2f7" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
+<style>
+:root{--bg:#f2f2f7;--card:#fff;--text:#1c1c1e;--text2:#6e6e73;--sep:rgba(60,60,67,.14);--accent:#2a78d6}
+@media (prefers-color-scheme:dark){:root{--bg:#000;--card:#1c1c1e;--text:#f5f5f7;--text2:#98989d;--sep:rgba(84,84,88,.5);--accent:#3987e5}}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font:17px/1.5 -apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,sans-serif;-webkit-font-smoothing:antialiased;padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom)}
+.wrap{max-width:680px;margin:0 auto;padding:48px 20px 40px}
+h1{font-size:34px;line-height:1.15;font-weight:700;letter-spacing:-.6px}
+.lead{color:var(--text2);margin-top:10px}
+h2{font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:.6px;color:var(--text2);margin:36px 4px 10px}
+.box{background:var(--card);border-radius:16px;padding:16px 20px}
+.box p+p,.box p+ul,.box ul+p{margin-top:10px}
+.box ul{margin-left:20px}
+.box li+li{margin-top:5px}
+a{color:var(--accent)}
+.back{display:inline-block;margin-bottom:18px;text-decoration:none;font-size:15px}
+.todo{background:rgba(255,204,0,.25);padding:0 4px;border-radius:4px}
+footer{margin-top:40px;text-align:center;font-size:13px;color:var(--text2)}
+footer a{color:inherit}
+footer p+p{margin-top:6px}
+</style>
+</head>
+<body>
+<main class="wrap">
+  <a class="back" href="./">‹ Pocket Tools</a>
+  <h1>Privacy policy</h1>
+  <p class="lead">Last updated 20 November 2026. Short version: the apps store only what you enter, only so they can work, and you can download or delete all of it inside any app.</p>
+
+  <h2>Who runs this</h2>
+  <div class="box">
+    <p>Pocket Tools is a free, open-source hobby project run by its repository owner (<a href="https://github.com/ibrahimovfuad/pockettools">github.com/ibrahimovfuad/pockettools</a>). It is not a company and it is not commercial.</p>
+    <p>Contact for privacy questions and requests: <span class="todo">[Your name / contact email]</span></p>
+  </div>
+
+  <h2>What is stored, per app</h2>
+  <div class="box">
+    <p>Apps with sign-in use your Google account only to know who you are. We receive your name, email address and profile picture from Google; the apps show them to you and do not use them for anything else.</p>
+    <ul>
+      <li><b>Mood</b>: your daily ratings (0–10) and optional notes, the time you agreed to store them in the cloud, and, if you turn reminders on, your reminder time, time zone and your device’s push-notification address.</li>
+      <li><b>Habits</b>: your habits (names, icons, colours, archive state) and your check-ins and notes.</li>
+      <li><b>Bookshelf</b>: your books, ratings, reviews, quotes and sharing settings. If you turn on the friends link, a read-only copy of your shelf (your first name, photo, books and, if you choose, ratings and quotes) is published under a random link that anyone who has it can open.</li>
+      <li><b>Spend</b>: your categories, expenses (amount, date, note, shop) and your budget and shop rules.</li>
+      <li><b>Weekly Digest</b>: a small count per week (how many quotes you had) and, if you turn notifications on, your push-notification address. It reads your data from Mood, Habits, Spend and Bookshelf on your device to build the stories; the server never sees that data.</li>
+      <li><b>Routes</b> (only if you sign in; without an account everything stays on your phone): the places you save (Home, Work, favourite stops), your last 10 searches and your Routes settings. Never your trips or where you have been.</li>
+      <li><b>Timer</b> and <b>Video call</b>: no account and nothing stored on our side. The timer keeps its settings on your device. Video calls go directly between the devices; see third parties below.</li>
+      <li>Older data from the removed <b>Lightmeter</b> app, if you used it, is kept in your account until you delete it.</li>
+    </ul>
+  </div>
+
+  <h2>Where and why</h2>
+  <div class="box">
+    <p>Your data is stored in <b>Google Firebase (Cloud Firestore)</b>, in one Firebase project shared by the apps. Hosting, the notification functions and the notification settings run on <b>Netlify</b> (Netlify Functions and Netlify Blobs). The only purpose is to provide the app you use: sync between your devices and send the reminders you asked for.</p>
+    <p>There are <b>no ads</b>, <b>no analytics or tracking</b> and we <b>never sell or share</b> your data. Nothing is used for profiling or advertising.</p>
+    <p>Legal basis: providing the service you asked for. For Mood, whose entries can reveal how you feel, we also ask for your explicit consent once, before the first entry is saved.</p>
+  </div>
+
+  <h2>Who can see it</h2>
+  <div class="box">
+    <p>Each user can read and change only their own data; this is enforced by Firestore security rules that are public in the repository. Data is encrypted in transit and at rest by Google, but it is <b>not end-to-end encrypted</b>: the administrator of the Firebase project can technically access it. The administrator only opens your data when you ask for help, to fix a bug, or when required by law, never otherwise. The administrator account is protected with two-factor authentication.</p>
+  </div>
+
+  <h2>How long we keep it</h2>
+  <div class="box">
+    <p>Until you delete it. We keep no backups of our own; after you delete, Google may keep a copy in its own systems for a short, limited time before it is removed.</p>
+  </div>
+
+  <h2>Your rights and how to use them</h2>
+  <div class="box">
+    <p>You have the right to access, receive a copy of, correct and delete your data, to withdraw consent, and to complain to your data-protection authority. You can do the main ones yourself, in any app that signs you in, under <b>Account &amp; data</b> (Settings, or Profile in Bookshelf):</p>
+    <ul>
+      <li><b>Export my data</b>: downloads one JSON file with everything stored about you in all Pocket Tools apps.</li>
+      <li><b>Delete this app’s data</b>: deletes only that app’s data and keeps your account.</li>
+      <li><b>Delete account</b>: deletes the data of every app, any notification subscriptions and your sign-in account. This cannot be undone.</li>
+    </ul>
+    <p>You can correct your data by editing it in the app. For anything else, or if something does not work, write to the contact address above.</p>
+  </div>
+
+  <h2>Cookies and local storage</h2>
+  <div class="box">
+    <p>The apps set <b>no cookies</b> of their own and use no analytics, ads or trackers. They use only strictly necessary browser storage: Firebase Authentication keeps you signed in (IndexedDB and localStorage), and your settings, saved places and offline caches live in localStorage and the service-worker cache. Google sets its own cookies only during sign-in, on its own pages. Because nothing here needs your consent, there is no cookie banner. Deleting your account also clears the local copy on the device you used.</p>
+  </div>
+
+  <h2>Third parties</h2>
+  <div class="box">
+    <ul>
+      <li><b>Google</b>: sign-in with your Google account, Firebase Authentication and Firestore. See <a href="https://policies.google.com/privacy">Google’s privacy policy</a>.</li>
+      <li><b>Netlify</b>: hosting, functions and Blobs. See <a href="https://www.netlify.com/privacy/">Netlify’s privacy policy</a>.</li>
+      <li><b>Push services</b> (run by Apple, Google or Mozilla, depending on your browser) deliver notifications if you turn them on. They see the notification address of your device and the notification text, which contains no personal data.</li>
+      <li><b>Bookshelf</b> sends your search words or a scanned ISBN to Open Library and Google Books to find book details, loads covers from Open Library and loads a font from Google Fonts. These services see your IP address.</li>
+      <li><b>Video call</b> uses the PeerJS public server to connect the two devices and a Google STUN server to find a network route; they see IP addresses, not the call itself.</li>
+      <li><b>Routes</b> uses Transitous (public-transport routing) and OpenFreeMap (map tiles); they see the places you search for and your IP address.</li>
+    </ul>
+  </div>
+
+  <h2>Changes</h2>
+  <div class="box">
+    <p>If this policy changes, the date at the top changes and the history is visible in the <a href="https://github.com/ibrahimovfuad/pockettools/commits/main/site/privacy.html">repository</a>.</p>
+  </div>
+
+  <footer>
+    <p><a href="./">Pocket Tools</a> · <a href="https://github.com/ibrahimovfuad/pockettools">Open source on GitHub</a></p>
+    <p><a href="https://www.netlify.com">This site is powered by Netlify</a></p>
+  </footer>
+</main>
+</body>
+</html>

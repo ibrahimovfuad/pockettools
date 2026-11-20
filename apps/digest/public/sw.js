@@ -1,5 +1,5 @@
 // Offline cache. Bump the version whenever files change.
-const CACHE = 'digest-v1';
+const CACHE = 'digest-v3';
 const FILES = ['./', 'index.html', 'app.js', 'nozoom.js', 'onboarding.js', 'config.js', 'manifest.webmanifest', 'icon-192.png', 'icon-512.png', 'apple-touch-icon.png'];
 
 self.addEventListener('install', e => {

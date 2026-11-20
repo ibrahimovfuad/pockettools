@@ -41,6 +41,12 @@ const share = file => { manifest[file] = [...new Set([...(manifest[file] || []),
 share('nozoom.js');
 if (firebase) {
   share('config.js');
+  // Account & data: the app is listed in the user-data registry and gets its own copy of the shared account code
+  for (const f of ['account.js', 'user-data.json']) { manifest[f] = [...new Set([...(manifest[f] || []), `${dir}/src`])]; copyFileSync(`shared/${f}`, `${dir}/src/${f}`); }
+  const reg = JSON.parse(readFileSync('shared/user-data.json', 'utf8'));
+  reg.apps[name] = { name: title, collections: [] };
+  writeFileSync('shared/user-data.json', JSON.stringify(reg, null, 2) + '\n');
+  manifest['user-data.json'].forEach(d => copyFileSync('shared/user-data.json', `${d}/user-data.json`));   // keep every copy in sync
   const idx = `${dir}/public/index.html`;
   writeFileSync(idx, readFileSync(idx, 'utf8').replace('<script src="nozoom.js"></script>', '<script src="nozoom.js"></script>\n<script src="config.js"></script>'));
   const sw = `${dir}/public/sw.js`;
@@ -83,4 +89,4 @@ Next:
   1. Check that https://${site}.netlify.app is free (the release stops if the name is taken).
   2. cd ${dir} && npm install && npm run build
   3. Replace the placeholder icons in ${dir}/public and site/icons/${name}.png.
-${firebase ? '  4. Add Firestore rules for the new collections in firebase/firestore.rules, with tests in firebase/test/.\n' : ''}  Then open a pull request; after it is merged, run the Release workflow.`);
+${firebase ? `  4. Register every collection the app stores under apps.${name}.collections in shared/user-data.json (then npm run sync-shared), and call initAccount() from src/account.js\n     so the settings screen gets Export / Delete this app’s data / Delete account. CI fails if a collection in firestore.rules is not registered.\n` : ''}${firebase ? '  5. Add Firestore rules for the new collections in firebase/firestore.rules, with tests in firebase/test/.\n' : ''}  Then open a pull request; after it is merged, run the Release workflow.`);

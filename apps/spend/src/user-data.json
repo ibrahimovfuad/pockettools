@@ -1,0 +1,70 @@
+{
+  "_comment": "Registry of everything Pocket Tools stores about a signed-in user. shared/account.js reads it to export and delete data, and CI checks it against firebase/firestore.rules. Every app that stores user data must be listed here: add its collections (the names under users/{uid}/ in firestore.rules) and any server-side store. Edit it here, then run npm run sync-shared.",
+  "project": "login-e91f7",
+  "privacyUrl": "https://pockettools2.netlify.app/privacy.html",
+  "consents": { "mood": 1 },
+  "apps": {
+    "mood": {
+      "name": "Mood",
+      "collections": [
+        { "id": "days", "what": "your daily ratings and notes" },
+        { "id": "mood_consent", "what": "your consent record (when you agreed to store entries in the cloud)" }
+      ],
+      "server": [
+        { "what": "reminder settings and push subscriptions", "url": "https://moodlog2.netlify.app/api/reminder" }
+      ]
+    },
+    "habits": {
+      "name": "Habits",
+      "collections": [
+        { "id": "habits", "what": "your habits" },
+        { "id": "logs", "what": "your habit check-ins" }
+      ]
+    },
+    "bookshelf": {
+      "name": "Bookshelf",
+      "collections": [
+        { "id": "books", "what": "your books, ratings and reviews" },
+        { "id": "quotes", "what": "your quotes and notes" }
+      ],
+      "profile": { "what": "your sharing settings" },
+      "publicShelf": { "collection": "public", "idPath": ["share", "id"], "what": "your public friends link and the copy of your shelf behind it" }
+    },
+    "spend": {
+      "name": "Spend",
+      "collections": [
+        { "id": "spend_categories", "what": "your categories" },
+        { "id": "spend_expenses", "what": "your expenses" },
+        { "id": "spend_meta", "what": "your budget and shop rules" }
+      ]
+    },
+    "digest": {
+      "name": "Weekly Digest",
+      "collections": [
+        { "id": "digest_weeks", "what": "your weekly snapshots" }
+      ],
+      "server": [
+        { "what": "Sunday notification settings and push subscriptions", "url": "https://weeklydigest2.netlify.app/api/reminder" }
+      ]
+    },
+    "routes": {
+      "name": "Routes",
+      "collections": [
+        { "id": "routes_places", "what": "your saved places (Home, Work, favourite stops)" },
+        { "id": "routes_meta", "what": "your Routes settings and last 10 searches" }
+      ]
+    }
+  },
+  "legacy": {
+    "lightmeter": {
+      "name": "Lightmeter (removed app)",
+      "collections": [
+        { "id": "lm_cameras", "what": "cameras" },
+        { "id": "lm_lenses", "what": "lenses" },
+        { "id": "lm_films", "what": "films" },
+        { "id": "lm_rolls", "what": "rolls of film" },
+        { "id": "lm_frames", "what": "logged frames" }
+      ]
+    }
+  }
+}
