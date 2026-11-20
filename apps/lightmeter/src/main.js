@@ -147,10 +147,16 @@ function buildDial(k) {
   for (let x = d.from(); x <= d.to(); x++) out.push(`<button data-v="${x}">${esc(d.label(x))}</button>`);
   el.innerHTML = '<span class="pad"></span>' + out.join('') + '<span class="pad"></span>';
   el._val = null;
-  el.querySelectorAll('button').forEach(b => b.addEventListener('click', () => { const x = +b.dataset.v; if (x !== el._val) tick(); scrollDial(k, x, true); onDial(k, x); }));
+  el.querySelectorAll('button').forEach(b => b.addEventListener('click', () => {
+    const x = +b.dataset.v;
+    // a tap is not a turn: cancel the pending settle (it would snap back to the old centre) and scroll to the tapped value
+    clearTimeout(el._settleT); el._touching = false; el._userUntil = 0;
+    if (x !== el._val) tick();
+    scrollDial(k, x, true); onDial(k, x);
+  }));
   if (!el._bound) {
     el._bound = true;
-    let t = null, raf = 0, lastTick = null;
+    let raf = 0, lastTick = null;
     const userActive = () => el._touching || performance.now() < (el._userUntil || 0);
     // magnet: once the user's scroll has stopped, settle exactly on the nearest value
     const settle = () => {
@@ -162,14 +168,13 @@ function buildDial(k) {
       scrollDial(k, x, true);
       if (changed) onDial(k, x);
     };
-    el.addEventListener('touchstart', () => { el._touching = true; el._userUntil = 0; clearTimeout(t); }, { passive: true });
+    el.addEventListener('touchstart', () => { el._touching = true; el._userUntil = 0; clearTimeout(el._settleT); }, { passive: true });
     ['pointerdown', 'wheel'].forEach(n => el.addEventListener(n, () => { el._userUntil = performance.now() + 1500; }, { passive: true }));
     const lift = () => {
       if (!el._touching) return;
       el._touching = false;
       el._userUntil = performance.now() + 1500;    // the dial may keep coasting after a flick
-      if (IS_IOS) tick();                          // the one haptic iPhone plays from a scroll gesture: when the finger lifts
-      clearTimeout(t); t = setTimeout(settle, 160); // no momentum: settle now; momentum: scroll events push this back
+      clearTimeout(el._settleT); el._settleT = setTimeout(settle, 160); // no momentum: settle now; momentum: scroll events push this back
     };
     el.addEventListener('touchend', lift, { passive: true });
     el.addEventListener('touchcancel', lift, { passive: true });
@@ -187,8 +192,8 @@ function buildDial(k) {
           el.querySelectorAll('button.cur').forEach(o => o.classList.remove('cur')); b.classList.add('cur');
         }
       });
-      clearTimeout(t);
-      t = setTimeout(settle, 140);
+      clearTimeout(el._settleT);
+      el._settleT = setTimeout(settle, 140);
     }, { passive: true });
   }
 }
