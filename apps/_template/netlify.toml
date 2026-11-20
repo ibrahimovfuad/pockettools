@@ -1,11 +1,8 @@
-# In Netlify set "Base directory" to apps/<app-name>; this file is then read from here.
-
+# Netlify: Base directory = apps/__NAME__
 [build]
-  # Static app without a build step: publish the folder as-is.
-  publish = "."
-  # For a Vite app instead use:
-  # command = "npm run build"
-  # publish = "dist"
-
-  # Only build when something inside this folder changed (saves deploy credits).
-  ignore = "git diff --quiet $CACHED_COMMIT_REF $COMMIT_REF ."
+  publish = "public"
+  command = "echo 'Already built'"
+  # Netlify never builds from Git: releases are deployed by .github/workflows/release.yml
+  # (Netlify CLI) when a v* tag is created. This also stops Deploy Previews, which cost credits.
+  # In a fork that deploys with Netlify's Git integration, delete this line.
+  ignore = "exit 0"

@@ -1,0 +1,19 @@
+{
+  "name": "pockettools-tooling",
+  "private": true,
+  "type": "module",
+  "description": "Repository tooling only (checks, tests, generators). Each app has its own package.json.",
+  "scripts": {
+    "check": "python3 .github/scripts/pt.py check origin/main",
+    "test:rules": "firebase emulators:exec --only firestore --project demo-pockettools \"node --test firebase/test/rules.test.mjs\"",
+    "test:smoke": "playwright test",
+    "sync-shared": "node scripts/sync-shared.mjs",
+    "new-app": "node scripts/new-app.mjs"
+  },
+  "devDependencies": {
+    "@firebase/rules-unit-testing": "^6.0.0",
+    "@playwright/test": "^1.65.1",
+    "firebase": "^13.4.0",
+    "firebase-tools": "^15.37.0"
+  }
+}

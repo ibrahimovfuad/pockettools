@@ -35,6 +35,7 @@ npx netlify-cli dev
 1. Create a Firebase project with Google sign-in and Firestore; publish the rules from [`firebase/firestore.rules`](../../firebase/firestore.rules).
 2. Put your Firebase web config into `public/config.js` and your project ID into `public/_redirects`.
 3. Netlify → import this repository → **Base directory** `apps/mood`.
+   In a fork, delete `ignore = "exit 0"` from `netlify.toml` first — this repository deploys with release tags instead of Netlify Git builds.
 4. Set environment variables (generate VAPID keys with `npx web-push generate-vapid-keys`):
 
 | Variable | Description |

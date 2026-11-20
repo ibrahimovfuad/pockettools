@@ -1,6 +1,6 @@
-# App name
+# __TITLE__
 
-One sentence about what this app does and who it is for.
+__DESC__ Live at https://__SITE__.netlify.app
 
 ## Features
 
@@ -9,12 +9,15 @@ One sentence about what this app does and who it is for.
 ## Run locally
 
 ```bash
-npx serve .
+npm install
+npm run build      # bundles src/main.js into public/app.js (commit the result)
+npx serve public
 ```
 
 ## Deploy
 
-In Netlify, import this repository and set **Base directory** to `apps/<app-name>`.
+Deployed by the repository's release workflow (`.github/workflows/release.yml`) to the Netlify site `__SITE__`.
+In a fork, import the repository in Netlify with **Base directory** `apps/__NAME__` and delete `ignore = "exit 0"` from `netlify.toml`.
 
 ### Environment variables
 

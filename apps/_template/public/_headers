@@ -1,0 +1,5 @@
+# Disallow inline scripts on app pages — this also keeps the Netlify badge from being injected.
+/
+  Content-Security-Policy: script-src 'self'
+/index.html
+  Content-Security-Policy: script-src 'self'

@@ -1,0 +1,16 @@
+# Monthly dependency updates, one grouped pull request per folder.
+# An update to an app's dependencies changes its bundle: CI ("Bundle is up to date") will fail until someone runs
+# "npm run build" in that app, commits public/app.js and bumps CACHE — that is intended, so nothing ships unseen.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule: { interval: monthly }
+    groups:
+      actions: { patterns: ['*'] }
+  - package-ecosystem: npm
+    directories: ['/', '/apps/bookshelf', '/apps/habits', '/apps/mood', '/apps/spend']
+    schedule: { interval: monthly }
+    open-pull-requests-limit: 5
+    groups:
+      all: { patterns: ['*'] }

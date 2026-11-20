@@ -33,6 +33,7 @@ npx serve public
 1. Create a Firebase project with Google sign-in and Firestore; publish [`firebase/firestore.rules`](../../firebase/firestore.rules).
 2. Put your Firebase web config into `public/config.js` and your project ID into `public/_redirects`.
 3. Netlify → import this repository → **Base directory** `apps/bookshelf`. No build runs on Netlify — the bundle is committed.
+   In a fork, delete `ignore = "exit 0"` from `netlify.toml` first — this repository deploys with release tags instead of Netlify Git builds.
 4. Add your Netlify domain to Firebase **Authorized domains**, and to the Google OAuth client's JavaScript origins and redirect URIs (`https://<site>/__/auth/handler`).
 
 Step-by-step guide in Russian: [README.ru.md](README.ru.md).

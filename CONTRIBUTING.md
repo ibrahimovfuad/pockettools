@@ -26,11 +26,24 @@ npm run dev
 
 ## Adding a new app
 
-1. Copy `apps/_template/` to `apps/<your-app-name>/`.
-2. Keep the app independent: it should not import files from other app folders.
-3. Fill in its `README.md` and adjust `netlify.toml`.
-4. Keep the "This site is powered by Netlify" link on the app's main screen (see any existing app, class `nf`).
-5. Add a row to the apps table in the root `README.md`.
+```bash
+npm install                      # repository tooling, once
+npm run new-app -- notes --title "Notes" --desc "Quick notes to self." [--firebase]
+```
+
+This copies `apps/_template/` to `apps/notes/` and lists the new app everywhere it has to appear (README, AGENTS.md, the homepage, the Netlify site list, shared files and, with `--firebase`, the Firebase domains). Keep the app independent: it must not import files from other app folders.
+
+## Pull requests and checks
+
+`main` is protected: every change goes through a pull request from a branch, and the **CI** workflow must pass before it can be merged. CI checks that bundles are rebuilt, service-worker versions are bumped, the UI is in English, there are no inline scripts, the required links are present and shared files are in sync; it also opens every app in an iPhone-sized WebKit window and runs the Firestore rules tests on the emulator. You can run most of it locally:
+
+```bash
+npm run check                    # repository checks against origin/main
+npm run test:smoke               # needs: npx playwright install webkit
+npm run test:rules               # needs Java 11+
+```
+
+Merging does not deploy anything — releases do (see [AGENTS.md](AGENTS.md#releases)).
 
 ## Guidelines
 

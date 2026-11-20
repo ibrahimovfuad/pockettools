@@ -1,0 +1,40 @@
+# Every morning: are all sites up, and do they run the latest release? Opens (or updates) an issue when not,
+# and closes it when everything is fine again. GitHub emails you about new issues in your repository.
+name: Site monitor
+
+on:
+  schedule:
+    - cron: '17 6 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  check:
+    if: github.repository == 'ibrahimovfuad/pockettools'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          fetch-depth: 0
+      - name: Check the sites
+        id: check
+        run: |
+          set +e
+          python3 .github/scripts/monitor.py > report.md; echo "failed=$?" >> "$GITHUB_OUTPUT"
+          cat report.md >> "$GITHUB_STEP_SUMMARY"
+      - name: Open, update or close the issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TITLE: 'Site monitor: a site is down or out of date'
+        run: |
+          NUM="$(gh issue list --state open --search "\"$TITLE\" in:title" --json number --jq '.[0].number // empty')"
+          if [ "${{ steps.check.outputs.failed }}" != "0" ]; then
+            if [ -n "$NUM" ]; then gh issue comment "$NUM" --body-file report.md
+            else gh issue create --title "$TITLE" --body-file report.md; fi
+            exit 1
+          elif [ -n "$NUM" ]; then
+            gh issue close "$NUM" --comment "All sites are up and on the latest release again."$'\n\n'"$(cat report.md)"
+          fi

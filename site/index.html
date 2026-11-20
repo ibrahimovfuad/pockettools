@@ -94,7 +94,7 @@ footer p+p{margin-top:6px}
     <p>Every app is a small, readable project you can deploy to your own account in a few minutes:</p>
     <ol>
       <li>Fork <a href="https://github.com/ibrahimovfuad/pockettools">the repository</a>.</li>
-      <li>In Netlify, import your fork and set <b>Base directory</b> to the app folder, e.g. <code>apps/timer</code>.</li>
+      <li>In Netlify, import your fork and set <b>Base directory</b> to the app folder, e.g. <code>apps/timer</code>. Delete <code>ignore = "exit 0"</code> from that folder’s <code>netlify.toml</code> first.</li>
       <li>Follow the app's README for any extra setup (Firebase, push keys).</li>
     </ol>
   </div>

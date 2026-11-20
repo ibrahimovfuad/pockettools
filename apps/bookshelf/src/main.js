@@ -19,7 +19,7 @@ const plural = (n, one, many) => n === 1 ? one : many;
 const books_ = n => `${n} ${plural(n, 'book', 'books')}`;
 const MONTHS1 = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 const M1 = ['J', 'F', 'M', 'A', 'M', 'J', 'J', 'A', 'S', 'O', 'N', 'D'];
-const norm = s => String(s || '').toLowerCase().replace(/ё/g, 'е').replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
+const norm = s => String(s || '').toLowerCase().replace(/ё/g, 'е').replace(/[^\p{L}\p{N}]+/gu, ' ').trim();   // cyrillic-ok: ё → е for search
 // dates are stored as strings: "2024", "2024-05" or "2024-05-12" — precision by length
 function fmtDate(s) {
   if (!s) return '—';
@@ -183,7 +183,7 @@ const B = id => S.books.find(b => b.id === id);
 const STATUS = { queue: 'Want to read', reading: 'Reading', done: 'Read', dropped: 'Skipped' };   // stored value stays 'dropped' (existing data)
 const FORMATS = ['Paper', 'E-book', 'Audio'];
 // older versions stored Russian format/genre names — show them in English
-const LEGACY = { 'Бумага': 'Paper', 'Электронная': 'E-book', 'Аудио': 'Audio', 'Художественная': 'Fiction', 'Детская': 'Children', 'Биография': 'Biography', 'История': 'History', 'Наука': 'Science', 'Психология': 'Psychology', 'Бизнес': 'Business', 'Саморазвитие': 'Self-help', 'Философия': 'Philosophy', 'Технологии': 'Technology', 'Поэзия': 'Poetry', 'Путешествия': 'Travel', 'Религия': 'Religion', 'Здоровье': 'Health', 'Кулинария': 'Cooking', 'Искусство': 'Art', 'Образование': 'Education', 'Политика': 'Politics', 'Общество': 'Society', 'Литературоведение': 'Literary criticism', 'Драматургия': 'Drama', 'Тру-крайм': 'True crime', 'Комиксы': 'Comics' };
+const LEGACY = { 'Бумага': 'Paper', 'Электронная': 'E-book', 'Аудио': 'Audio', 'Художественная': 'Fiction', 'Детская': 'Children', 'Биография': 'Biography', 'История': 'History', 'Наука': 'Science', 'Психология': 'Psychology', 'Бизнес': 'Business', 'Саморазвитие': 'Self-help', 'Философия': 'Philosophy', 'Технологии': 'Technology', 'Поэзия': 'Poetry', 'Путешествия': 'Travel', 'Религия': 'Religion', 'Здоровье': 'Health', 'Кулинария': 'Cooking', 'Искусство': 'Art', 'Образование': 'Education', 'Политика': 'Politics', 'Общество': 'Society', 'Литературоведение': 'Literary criticism', 'Драматургия': 'Drama', 'Тру-крайм': 'True crime', 'Комиксы': 'Comics' };   // cyrillic-ok
 const fixLegacy = b => ({ ...b, format: LEGACY[b.format] || b.format, genre: LEGACY[b.genre] || b.genre });
 
 // skipped books stay out of Read unless the Skipped chip is on
@@ -997,11 +997,11 @@ function parseCSV(text) {
   return out.filter(r => r.some(x => x.trim()));
 }
 const COLS = {
-  title: ['название', 'title', 'книга', 'book'], author: ['автор', 'author', 'авторы', 'authors'], status: ['статус', 'status', 'exclusive shelf', 'полка', 'shelf'],
-  start: ['начал', 'start', 'начало', 'date started', 'started'], end: ['закончил', 'end', 'прочитал', 'дата прочтения', 'date read', 'finished', 'окончание', 'конец'],
-  rating: ['оценка', 'rating', 'my rating'], isbn: ['isbn', 'isbn13'], genre: ['жанр', 'genre'], format: ['формат', 'format', 'binding'],
-  pages: ['страниц', 'pages', 'number of pages'], year: ['год издания', 'year', 'year published', 'original publication year'], review: ['отзыв', 'review', 'my review'],
-  why: ['почему бросил', 'why'], desc: ['описание', 'description']
+  title: ['название', 'title', 'книга', 'book'], author: ['автор', 'author', 'авторы', 'authors'], status: ['статус', 'status', 'exclusive shelf', 'полка', 'shelf'],   // cyrillic-ok: import aliases
+  start: ['начал', 'start', 'начало', 'date started', 'started'], end: ['закончил', 'end', 'прочитал', 'дата прочтения', 'date read', 'finished', 'окончание', 'конец'],   // cyrillic-ok: import aliases
+  rating: ['оценка', 'rating', 'my rating'], isbn: ['isbn', 'isbn13'], genre: ['жанр', 'genre'], format: ['формат', 'format', 'binding'],   // cyrillic-ok: import aliases
+  pages: ['страниц', 'pages', 'number of pages'], year: ['год издания', 'year', 'year published', 'original publication year'], review: ['отзыв', 'review', 'my review'],   // cyrillic-ok: import aliases
+  why: ['почему бросил', 'why'], desc: ['описание', 'description']   // cyrillic-ok: import aliases
 };
 function statusOf(v, hasEnd) {
   v = norm(v);
