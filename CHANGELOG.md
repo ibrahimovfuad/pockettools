@@ -4,6 +4,7 @@ All notable changes to Pocket Tools are listed here, newest first.
 
 ## 2026-11-20
 
+- Lightmeter: the camera stream is kept (paused) when you leave the meter, switch to Manual or lock the phone, so iPhone stops asking for camera access each time.
 - Lightmeter: dials only move sideways — no more dragging values up or down out of the row.
 - All apps: pinch-zoom and double-tap zoom are blocked (`nozoom.js`, viewport and `touch-action: pan-x pan-y`).
 - Lightmeter: dials no longer get scrolled by new light readings while you turn them, so they always snap to a value; iPhone haptic uses a fresh hidden switch each time.

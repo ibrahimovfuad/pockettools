@@ -259,8 +259,16 @@ const vid = $('vid'), cvs = document.createElement('canvas'), ctx = cvs.getConte
 const LIN = new Float32Array(256).map((_, i) => { const c = i / 255; return c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4); });
 let stream = null, track = null, loopT = null;
 
+// iPhone Home Screen apps ask for the camera again whenever a stream is requested anew, so the
+// stream is kept for the whole session: leaving the meter only pauses it (track disabled, no metering).
 async function startCamera() {
-  if (manual || stream) return;
+  if (manual) return;
+  if (stream && track && track.readyState === 'live') {
+    track.enabled = true; await vid.play().catch(() => {});
+    clearInterval(loopT); loopT = setInterval(meter, 250);
+    return;
+  }
+  if (stream) stopCamera();                      // the system ended it (e.g. a phone call): ask again
   if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { camFailed('This browser cannot use the camera.'); return; }
   try {
     stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false });
@@ -274,6 +282,7 @@ async function startCamera() {
     camFailed(e && e.name === 'NotAllowedError' ? 'Camera access was denied. Allow it in your browser settings, or use Manual.' : 'The camera could not start. You can still use Manual.');
   }
 }
+function pauseCamera() { clearInterval(loopT); loopT = null; if (track) track.enabled = false; }
 function stopCamera() { clearInterval(loopT); loopT = null; if (stream) stream.getTracks().forEach(t => t.stop()); stream = null; track = null; vid.srcObject = null; }
 function camFailed(text) { mode = 'off'; $('noCamText').textContent = text; $('noCam').classList.remove('hide'); renderMeter(); }
 $('camRetry').onclick = () => { stopCamera(); startCamera(); };
@@ -339,13 +348,13 @@ function hint() { $('modeHint').style.opacity = '0'; }
 $('holdBtn').onclick = () => { if (manual) return; hold = !hold; renderMeter(); toast(hold ? 'Reading held' : 'Live reading'); };
 $('manualBtn').onclick = () => {
   manual = !manual; hold = false;
-  if (manual) { stopCamera(); mode = 'manual'; $('noCam').classList.add('hide'); $('reticle').classList.add('hide'); spot = null; scrollDial('e', prefs.manualEv3); newReading(prefs.manualEv3, true); }
+  if (manual) { pauseCamera(); mode = 'manual'; $('noCam').classList.add('hide'); $('reticle').classList.add('hide'); spot = null; scrollDial('e', prefs.manualEv3); newReading(prefs.manualEv3, true); }
   else { mode = 'start'; startCamera(); }
   renderMeter();
 };
 document.addEventListener('visibilitychange', () => {
   if (!user) return;
-  if (document.visibilityState === 'hidden') stopCamera(); else if (!manual && view === 'meter') startCamera();
+  if (document.visibilityState === 'hidden') pauseCamera(); else if (!manual && view === 'meter') startCamera();
 });
 $('modeBadge').onclick = openCalibration;
 
@@ -452,7 +461,7 @@ function go(to) {
   view = to;
   ['scrJournal', 'scrRoll', 'scrGear'].forEach(id => $(id).classList.add('hide'));
   if (to === 'meter') { if (!manual) startCamera(); renderMeter(); return; }
-  stopCamera();
+  pauseCamera();
   const el = $({ journal: 'scrJournal', roll: 'scrRoll', gear: 'scrGear' }[to]);
   el.classList.remove('hide', 'push-in'); void el.offsetWidth; el.classList.add('push-in'); el.scrollTop = 0;
   renderScreen();
