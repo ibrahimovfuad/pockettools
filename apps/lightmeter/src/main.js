@@ -87,6 +87,8 @@ let seeded = false;
 const sel = load('lm-sel', { cameraId: '', lensId: '', rollId: '' });
 const cal = load('lm-cal', { relOffset: 9, absCorr: 0, phoneN: 1.8 });
 const prefs = load('lm-prefs', { locks: { i: true, a: false, s: false }, v: { i: 6, a: 18, s: 24 }, location: false, manualEv3: 36 });
+// the value the user turned last stays put when the light changes (aperture → aperture priority, shutter → shutter priority)
+if (!prefs.keep) prefs.keep = 'a';
 let v = { ...prefs.v };                    // current ISO / aperture / shutter indexes
 let ev3 = null, dev = 0;                   // metered light (EV100 × 3, rounded) and the remaining error
 let mode = 'start', hold = false, manual = false, spot = null, smooth = null, rawEv = null;
@@ -113,24 +115,69 @@ const DIALS = {
   s: { from: () => ranges().sMin, to: () => ranges().sMax, label: X.shutterLabel },
   e: { from: () => E3_MIN, to: () => E3_MAX, label: X.thirds }
 };
+// ---------- haptics ----------
+// Android: the Vibration API. iPhone (iOS 17.4+/18): Safari has no vibration API, but a native
+// <input type=checkbox switch> gives a system haptic when its label is clicked. Safari only plays it
+// for user-initiated events, so on iPhone the reliable tick is the one when the finger lifts.
+const IS_IOS = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+let hapticLabel = null;
+function tick() {
+  if (!IS_IOS && navigator.vibrate) { try { navigator.vibrate(7); } catch (e) {} return; }
+  if (!IS_IOS) return;
+  if (!hapticLabel) {
+    hapticLabel = document.createElement('label');
+    hapticLabel.setAttribute('aria-hidden', 'true');
+    hapticLabel.style.display = 'none';
+    const sw = document.createElement('input');
+    sw.type = 'checkbox'; sw.setAttribute('switch', ''); sw.tabIndex = -1;
+    hapticLabel.appendChild(sw); document.body.appendChild(hapticLabel);
+  }
+  try { hapticLabel.click(); } catch (e) {}
+}
+
+function nearestButton(el) {
+  const mid = el.scrollLeft + el.clientWidth / 2;
+  let best = null, bd = 1e9;
+  el.querySelectorAll('button').forEach(b => { const c = b.offsetLeft + b.offsetWidth / 2, dd = Math.abs(c - mid); if (dd < bd) { bd = dd; best = b; } });
+  return best;
+}
 function buildDial(k) {
   const el = $('dial-' + k), d = DIALS[k], out = [];
   for (let x = d.from(); x <= d.to(); x++) out.push(`<button data-v="${x}">${esc(d.label(x))}</button>`);
   el.innerHTML = '<span class="pad"></span>' + out.join('') + '<span class="pad"></span>';
   el._val = null;
-  el.querySelectorAll('button').forEach(b => b.addEventListener('click', () => { const x = +b.dataset.v; scrollDial(k, x, true); onDial(k, x); }));
+  el.querySelectorAll('button').forEach(b => b.addEventListener('click', () => { const x = +b.dataset.v; if (x !== el._val) tick(); scrollDial(k, x, true); onDial(k, x); }));
   if (!el._bound) {
     el._bound = true;
-    let t = null;
+    let t = null, raf = 0, lastTick = null;
+    const user = () => performance.now() < (el._userUntil || 0);
+    // the finger is on the dial (or the dial is still coasting after a flick): ticks are allowed
+    ['touchstart', 'touchmove', 'pointerdown', 'wheel'].forEach(n => el.addEventListener(n, () => { el._userUntil = performance.now() + 1800; el._progUntil = 0; }, { passive: true }));
+    el.addEventListener('touchend', () => {
+      el._userUntil = performance.now() + 1800;
+      if (IS_IOS) tick();                          // the one haptic iPhone reliably plays: when the finger lifts
+    }, { passive: true });
     el.addEventListener('scroll', () => {
       if (performance.now() < (el._progUntil || 0)) return;
+      // live "ratchet": highlight and tick on every step while the user turns the dial
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(() => {
+        const b = nearestButton(el); if (!b) return;
+        const x = +b.dataset.v;
+        if (x !== lastTick) {
+          if (lastTick !== null && user()) tick();
+          lastTick = x;
+          el.querySelectorAll('button.cur').forEach(o => o.classList.remove('cur')); b.classList.add('cur');
+        }
+      });
       clearTimeout(t);
       t = setTimeout(() => {
-        const mid = el.scrollLeft + el.clientWidth / 2;
-        let best = null, bd = 1e9;
-        el.querySelectorAll('button').forEach(b => { const c = b.offsetLeft + b.offsetWidth / 2, dd = Math.abs(c - mid); if (dd < bd) { bd = dd; best = b; } });
-        if (best && +best.dataset.v !== el._val) onDial(k, +best.dataset.v);
-      }, 110);
+        const b = nearestButton(el); if (!b) return;
+        const x = +b.dataset.v;
+        const changed = x !== el._val;             // check before scrollDial(), which records the value
+        scrollDial(k, x, true);                    // magnet: settle exactly on the value
+        if (changed) onDial(k, x);
+      }, 120);
     }, { passive: true });
   }
 }
@@ -148,7 +195,7 @@ function buildAll() { ['i', 'a', 's', 'e'].forEach(buildDial); }
 // the user turned a dial: keep it, let the other free values follow
 function onDial(k, x) {
   if (k === 'e') { prefs.manualEv3 = x; $('dial-e')._val = x; markCur('e', x); newReading(x, true); return; }
-  v[k] = x;
+  v[k] = x; prefs.keep = k;
   if (ev3 != null) { const r = X.solve(v, ev3, ranges(), prefs.locks, k); v = { i: r.i, a: r.a, s: r.s }; dev = r.dev; }
   markCur(k, x); savePrefs(); renderMeter(k);
 }
@@ -158,11 +205,11 @@ function markCur(k, x) { const el = $('dial-' + k); el._val = x; el.querySelecto
 function newReading(e3, force) {
   if (e3 === ev3 && !force) return;
   ev3 = e3;
-  const r = X.solve(v, ev3, ranges(), prefs.locks, null);
+  const r = X.solve(v, ev3, ranges(), prefs.locks, prefs.keep);
   v = { i: r.i, a: r.a, s: r.s }; dev = r.dev;
   savePrefs(); renderMeter();
 }
-function resolveNow() { if (ev3 != null) { const r = X.solve(v, ev3, ranges(), prefs.locks, null); v = { i: r.i, a: r.a, s: r.s }; dev = r.dev; } else { const R = ranges(); v = { i: clamp(v.i, R.iMin, R.iMax), a: clamp(v.a, R.aMin, R.aMax), s: clamp(v.s, R.sMin, R.sMax) }; } }
+function resolveNow() { if (ev3 != null) { const r = X.solve(v, ev3, ranges(), prefs.locks, prefs.keep); v = { i: r.i, a: r.a, s: r.s }; dev = r.dev; } else { const R = ranges(); v = { i: clamp(v.i, R.iMin, R.iMax), a: clamp(v.a, R.aMin, R.aMax), s: clamp(v.s, R.sMin, R.sMax) }; } }
 
 function renderMeter(skip) {
   ['i', 'a', 's'].forEach(k => {

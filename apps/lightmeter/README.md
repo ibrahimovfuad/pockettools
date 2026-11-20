@@ -39,3 +39,9 @@ Deployed by [`.github/workflows/netlify-apps.yml`](../../.github/workflows/netli
 ## License
 
 MIT — see the [root LICENSE](../../LICENSE).
+
+## Dials and haptics
+
+- Dials snap to the nearest ⅓-stop value after you let go.
+- The dial you turned last keeps its value when the light changes (shutter → shutter priority, aperture → aperture priority); locked values never move.
+- Haptics: Android uses the Vibration API (a tick on every step). iPhone has no web vibration API; since iOS 18 Safari plays the system haptic of a native `<input type="checkbox" switch>`, but only for user-initiated events, so the reliable tick is when the finger lifts.

@@ -4,6 +4,14 @@ All notable changes to Pocket Tools are listed here, newest first.
 
 ## 2026-11-20
 
+### Lightmeter
+- Dials snap precisely onto a value after you let go.
+- Haptic ticks while turning a dial (Android) and a tick when the finger lifts (iPhone, iOS 18+).
+- The value you turned last now stays put when the light changes: turn the shutter for shutter priority, the aperture for aperture priority.
+- Fixed: long shutter speeds such as 1/1000 wrapped onto two lines and were cut off.
+
+## 2026-11-20
+
 ### Added
 - **Spend** (spendlog2.netlify.app): log an expense in two taps — amount, then category. Your own categories (add, recolor, reorder), notes and dates, a monthly view with an optional budget, CSV export, and Apple Pay payments filled in through a Shortcuts automation with per-shop rules.
 - **Lightmeter** (lightmeter2.netlify.app): exposure meter for film cameras. Spot (tap) or average (double-tap) metering with the phone camera, a manual EV mode, lockable ISO / aperture / shutter in ⅓ stops limited to your camera and lens, out-of-range warnings, calibration, and a journal of frames per roll.

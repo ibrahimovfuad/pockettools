@@ -25,4 +25,10 @@ assert.equal(E.thirds(37), '12⅓'); assert.equal(E.thirds(-5), '−1⅔');
 const lens = { ...R, aMin: E.apertureIndex(2), aMax: E.apertureIndex(16) };
 r = E.solve({ i: E.isoIndex(400), a: E.apertureIndex(40), s: E.shutterIndex(1/80) }, 45, lens, { i: true, s: true, a: false });
 assert.equal(E.apertureLabel(r.a), 'f/16'); assert.equal(E.thirds(r.dev), '2⅔');
+// shutter turned last (shutter priority): a new light reading moves the aperture, not the shutter
+r = E.solve({ i: 0, a: E.apertureIndex(8), s: E.shutterIndex(1/250) }, 48, R, { i: true, a: false, s: false }, 's');
+assert.equal(E.shutterLabel(r.s), '1/250'); assert.equal(E.apertureLabel(r.a), 'f/16'); assert.equal(r.dev, 0);
+// aperture turned last (aperture priority): the shutter follows the light
+r = E.solve({ i: 0, a: E.apertureIndex(8), s: E.shutterIndex(1/250) }, 48, R, { i: true, a: false, s: false }, 'a');
+assert.equal(E.apertureLabel(r.a), 'f/8'); assert.equal(E.shutterLabel(r.s), '1/1000');
 console.log('exposure tests passed');
