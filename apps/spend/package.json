@@ -6,7 +6,7 @@
     "build": "esbuild src/main.js --bundle --minify --format=iife --target=es2019,safari14 --outfile=public/app.js"
   },
   "devDependencies": {
-    "esbuild": "^0.24.0",
-    "firebase": "^11.0.2"
+    "esbuild": "^0.28.2",
+    "firebase": "^13.4.0"
   }
 }
