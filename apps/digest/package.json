@@ -1,0 +1,17 @@
+{
+  "name": "weekly-digest",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "esbuild src/main.js --bundle --minify --format=iife --target=es2019,safari14 --outfile=public/app.js"
+  },
+  "dependencies": {
+    "@netlify/blobs": "^8.1.0",
+    "jose": "^5.9.6",
+    "web-push": "^3.6.7"
+  },
+  "devDependencies": {
+    "esbuild": "^0.24.0",
+    "firebase": "^11.0.2"
+  }
+}

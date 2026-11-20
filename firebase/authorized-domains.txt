@@ -4,3 +4,4 @@
 moodlog2.netlify.app
 habitslog2.netlify.app
 shelff2.netlify.app
+weeklydigest2.netlify.app

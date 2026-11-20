@@ -8,6 +8,7 @@
     "apps/habits": "habitslog2",
     "apps/bookshelf": "shelff2",
     "apps/spend": "spendlog2",
+    "apps/digest": "weeklydigest2",
     "site": "pockettools2"
   }
 }
