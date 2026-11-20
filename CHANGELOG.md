@@ -4,6 +4,7 @@ All notable changes to Pocket Tools are listed here, newest first.
 
 ## 2026-11-20
 
+- Spend: amounts from iOS Shortcuts are parsed even with a currency symbol or thousands separators ("23,49 zł", "PLN 1 234,56").
 ### Lightmeter
 - Dials snap precisely onto a value after you let go.
 - Haptic ticks while turning a dial (Android) and a tick when the finger lifts (iPhone, iOS 18+).

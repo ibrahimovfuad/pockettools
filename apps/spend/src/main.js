@@ -26,7 +26,19 @@ function money(n, always) {
   const w = String(whole).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
   return (neg ? '−' : '') + (cents || always ? `${w},${pad(cents)}` : w);
 }
-const parseAmount = s => { const n = parseFloat(String(s || '').replace(/\s/g, '').replace(',', '.')); return isFinite(n) && n > 0 ? round2(n) : 0; };
+// Accepts what iOS Shortcuts may insert: "23,49", "23.49", "23,49 zł", "PLN 23.49", "1 234,56", "1,234.56".
+const parseAmount = str => {
+  let t = String(str || '').replace(/[^\d.,]/g, '');                     // drop currency, spaces, letters
+  const lastSep = Math.max(t.lastIndexOf(','), t.lastIndexOf('.'));
+  if (lastSep >= 0) {
+    const decimals = t.length - lastSep - 1;
+    t = decimals > 0 && decimals <= 2
+      ? t.slice(0, lastSep).replace(/[.,]/g, '') + '.' + t.slice(lastSep + 1)   // last separator is the decimal one
+      : t.replace(/[.,]/g, '');                                                // "1,234" / "1.000" = thousands
+  }
+  const n = parseFloat(t);
+  return isFinite(n) && n > 0 ? round2(n) : 0;
+};
 
 const CHEV = '<svg class="chev" viewBox="0 0 9 15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1.5 1.5l6 6-6 6"/></svg>';
 const BACK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg>';
