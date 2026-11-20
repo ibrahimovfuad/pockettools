@@ -2,7 +2,8 @@
 
   pt.py changed BASE [HEAD]   print the deployable folders whose deployed files changed between two commits
   pt.py check BASE [HEAD]     run the repository checks (cache bump, English UI, CSP, required links, shared files)
-  pt.py sites DIR...          find (or create) the Netlify site of each folder; prints "<dir> <site_id> <domain> <firebase>"
+  pt.py sites DIR...          find (or create) the Netlify site of each folder;
+                              prints "<dir> <site_id> <domain> <firebase> <publish dir> <functions dir or ->"
 
 A folder is deployable if it has a netlify.toml (apps/* except apps/_template, and site/). What ships is its
 publish directory plus its functions directory; README/Markdown files, src/, tests and package files never
@@ -185,9 +186,12 @@ def sites(dirs):
     for d in dirs:
         s = ensure_site(d)
         domain = (s.get('ssl_url') or s.get('url') or '').split('//')[-1].rstrip('/')
-        publish, _ = layout(d)
+        publish, functions = layout(d)
         firebase = int((ROOT / d / ('' if publish == '.' else publish) / 'config.js').exists())
-        print(d, s['id'], domain, firebase)
+        # absolute paths: the Netlify CLI resolves netlify.toml paths from the Git root, not from the app folder
+        pub = (ROOT / d / ('' if publish == '.' else publish)).resolve()
+        fns = (ROOT / d / functions).resolve() if functions else '-'
+        print(d, s['id'], domain, firebase, pub, fns)
 
 
 if __name__ == '__main__':

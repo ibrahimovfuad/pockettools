@@ -143,11 +143,16 @@ jobs:
         run: python3 .github/scripts/pt.py sites ${{ needs.plan.outputs.apps }} | tee deploy.txt
       - name: Deploy
         run: |
-          while read -r dir site domain firebase; do
+          while read -r dir site domain firebase pub fns; do
             echo "::group::Deploy $dir → $domain"
             # Functions are bundled by the CLI and need the app's own dependencies
-            if [ -d "$dir/netlify/functions" ] && [ -f "$dir/package-lock.json" ]; then (cd "$dir" && npm ci --no-audit --no-fund); fi
-            (cd "$dir" && npx -y netlify-cli@27.20.1 deploy --prod --no-build --site "$site" --message "${{ needs.plan.outputs.tag || github.ref_name }} ${GITHUB_SHA::7}")
+            FN=()
+            if [ "$fns" != "-" ]; then
+              [ -f "$dir/package-lock.json" ] && (cd "$dir" && npm ci --no-audit --no-fund)
+              FN=(--functions "$fns")
+            fi
+            # Explicit absolute --dir/--functions: the CLI would otherwise resolve netlify.toml paths from the Git root
+            (cd "$dir" && npx -y netlify-cli@27.20.1 deploy --prod --no-build --site "$site" --dir "$pub" "${FN[@]}" --message "${{ needs.plan.outputs.tag || github.ref_name }} ${GITHUB_SHA::7}")
             echo "- $dir → https://$domain" >> "$GITHUB_STEP_SUMMARY"
             echo "::endgroup::"
           done < deploy.txt
