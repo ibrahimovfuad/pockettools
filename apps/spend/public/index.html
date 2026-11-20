@@ -1,0 +1,278 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#f2f2f7" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Spend">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
+<title>Spend</title>
+<style>
+:root{
+  color-scheme:light;
+  --bg:#f2f2f7; --card:#fff; --text:#000; --text2:#6c6c70; --text3:#a1a1a6; --sep:#e3e3e8;
+  --fill:#e5e5ea; --blue:#0a63ce; --green:#248a3d; --green2:#30d158; --danger:#d70015; --key:transparent;
+  --toast:rgba(30,30,32,.92); --shadow:rgba(0,0,0,.08);
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    color-scheme:dark;
+    --bg:#000; --card:#1c1c1e; --text:#fff; --text2:#98989f; --text3:#636366; --sep:#38383a;
+    --fill:#2c2c2e; --blue:#409cff; --green:#30d158; --danger:#ff6961; --toast:rgba(58,58,60,.95); --shadow:rgba(0,0,0,.4);
+  }
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html{background:var(--bg)}
+body{min-height:100vh;background:var(--bg);color:var(--text);font:17px/1.3 -apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,sans-serif;-webkit-font-smoothing:antialiased;overscroll-behavior-y:none}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+input,select,textarea{font:inherit;color:var(--text)}
+.hide{display:none!important}
+.press{transition:transform .12s ease,opacity .12s ease}
+.press:active{transform:scale(.95);opacity:.85}
+
+/* ---------- screens ---------- */
+.screen{position:fixed;inset:0;background:var(--bg);display:flex;flex-direction:column;padding:calc(8px + env(safe-area-inset-top)) 16px calc(16px + env(safe-area-inset-bottom));overflow-y:auto;-webkit-overflow-scrolling:touch}
+.screen>*{flex-shrink:0}
+.screen>.amt-wrap{flex-shrink:1}
+.screen.push-in{animation:pushIn .38s cubic-bezier(.2,.9,.25,1) both;box-shadow:-12px 0 30px var(--shadow);z-index:5}
+.screen.pop-in{animation:popIn .32s cubic-bezier(.2,.9,.25,1) both}
+.nav{display:flex;align-items:center;justify-content:space-between;min-height:44px;flex:none}
+.nav .back{display:flex;align-items:center;gap:2px;color:var(--blue);font-size:17px;height:44px;padding-right:8px}
+.nav .back svg{width:22px;height:22px}
+.nav .title{font-weight:600}
+.nav .act{color:var(--blue);font-size:17px;height:44px;padding:0 4px}
+.round{width:36px;height:36px;border-radius:18px;background:var(--fill);display:grid;place-items:center;color:var(--blue)}
+.round svg{width:18px;height:18px}
+h1.large{font-size:34px;font-weight:700;letter-spacing:.3px;margin:6px 4px 4px}
+.sub{font-size:15px;color:var(--text2);margin:0 4px 16px}
+.sect{font-size:13px;color:var(--text2);text-transform:uppercase;letter-spacing:.2px;margin:24px 16px 6px}
+.foot{font-size:13px;color:var(--text2);margin:8px 16px 0;line-height:1.35}
+.group{background:var(--card);border-radius:12px;overflow:hidden}
+.row{display:flex;align-items:center;gap:12px;min-height:50px;padding:6px 16px;width:100%;text-align:left;font-size:17px;position:relative;background:var(--card)}
+.row+.row::before{content:"";position:absolute;top:0;left:16px;right:0;border-top:.5px solid var(--sep)}
+.row.ic+.row.ic::before{left:58px}
+.row .grow{flex:1;min-width:0}
+.row .val{color:var(--text2);font-variant-numeric:tabular-nums}
+.row .small{display:block;font-size:13px;color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.row.link{color:var(--blue)}
+.row.danger{color:var(--danger);justify-content:center}
+.chev{width:9px;height:15px;flex:none;color:#c4c4c7}
+.sq{width:30px;height:30px;border-radius:7px;color:#fff;display:grid;place-items:center;flex:none}
+.sq svg{width:18px;height:18px}
+.row input.inl{flex:1;border:0;outline:0;background:transparent;text-align:right;font-size:17px;min-width:0}
+.switch{appearance:none;-webkit-appearance:none;width:51px;height:31px;border-radius:16px;background:var(--fill);position:relative;flex:none;transition:background .2s;cursor:pointer}
+.switch::after{content:"";position:absolute;top:2px;left:2px;width:27px;height:27px;border-radius:14px;background:#fff;box-shadow:0 2px 4px rgba(0,0,0,.2);transition:transform .2s}
+.switch:checked{background:#34c759}
+.switch:checked::after{transform:translateX(20px)}
+
+/* ---------- step 1: amount ---------- */
+#scrAmount{padding-left:20px;padding-right:20px}
+.today{font-size:15px;color:var(--text2)}
+.today b{color:var(--text);font-weight:600}
+.amt-wrap{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;min-height:150px}
+.amt{display:flex;align-items:baseline;gap:6px}
+.amt b{font-size:76px;font-weight:300;letter-spacing:-1.5px;font-variant-numeric:tabular-nums;color:var(--text3);transition:color .15s}
+.amt b.on{color:var(--text)}
+.amt span{font-size:30px;color:var(--text2)}
+.chips{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
+.chip{height:32px;padding:0 12px;border-radius:16px;background:var(--fill);font-size:14px;font-weight:500}
+.keys{display:grid;grid-template-columns:repeat(3,1fr);gap:4px}
+.keys button{height:62px;border-radius:31px;font-size:30px;font-weight:400;display:flex;align-items:center;justify-content:center}
+.keys button:active{background:var(--fill)}
+.next{margin-top:12px;height:54px;border-radius:27px;background:var(--fill);color:var(--text2);font-size:17px;font-weight:600;flex:none;transition:background .2s,color .2s}
+.next.on{background:var(--green);color:#fff}
+.shake{animation:shake .36s ease}
+
+/* ---------- step 2: category ---------- */
+.merchant{display:flex;align-items:center;gap:12px;background:var(--card);border-radius:16px;padding:12px 14px;margin:6px 0 4px}
+.merchant .m{flex:1;min-width:0}
+.merchant .m small{display:block;font-size:13px;color:var(--text2)}
+.merchant .m b{display:block;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.merchant .a{font-size:20px;font-weight:600}
+.grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.tile{height:106px;border-radius:18px;background:var(--card);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:0 6px;-webkit-touch-callout:none;animation:tileIn .34s cubic-bezier(.2,.9,.3,1.2) both}
+.tile .sq{width:50px;height:50px;border-radius:13px}
+.tile .sq svg{width:26px;height:26px}
+.tile span{font-size:14px;font-weight:500;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rulebox{margin-top:16px}
+
+/* ---------- month ---------- */
+.total{background:var(--card);border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:10px}
+.total small{font-size:15px;color:var(--text2)}
+.total b{font-size:36px;font-weight:700;letter-spacing:-.3px;font-variant-numeric:tabular-nums}
+.bar{display:flex;height:10px;border-radius:5px;overflow:hidden;background:var(--fill);gap:2px}
+.bar span{display:block;height:100%}
+.empty{color:var(--text2);text-align:center;padding:30px 20px;font-size:15px}
+.day{font-size:13px;color:var(--text2);margin:18px 16px 6px;display:flex;justify-content:space-between}
+
+/* ---------- settings: reorder ---------- */
+.handle{width:36px;height:40px;display:grid;place-items:center;color:var(--text3);touch-action:none;flex:none;margin-right:-8px}
+.handle svg{width:20px;height:14px}
+.row.dragging{z-index:3;border-radius:12px;box-shadow:0 12px 28px rgba(0,0,0,.2);transform:scale(1.02);transition:none}
+.row.dragging::before{display:none}
+.howto{font-size:15px;line-height:1.45;color:var(--text);padding:12px 16px}
+.howto .act{color:var(--blue);font-size:15px}
+.howto ol{margin:6px 0 0 18px}
+.howto code{font:13px ui-monospace,SFMono-Regular,Menlo,monospace;background:var(--fill);padding:2px 5px;border-radius:5px;word-break:break-all;-webkit-user-select:text;user-select:text}
+
+/* ---------- sheet ---------- */
+#sheetBg{position:fixed;inset:-120px 0;background:rgba(0,0,0,.35);z-index:40;opacity:0;visibility:hidden;transition:opacity .25s,visibility 0s .25s}
+#sheetBg.open{opacity:1;visibility:visible;transition:opacity .25s}
+#sheet{position:fixed;left:0;right:0;bottom:0;z-index:41;max-width:600px;margin:0 auto;max-height:92vh;overflow-y:auto;background:var(--bg);border-radius:14px 14px 0 0;padding:6px 16px calc(24px + env(safe-area-inset-bottom));transform:translateY(calc(100% + 120px));visibility:hidden;transition:transform .34s cubic-bezier(.2,.9,.25,1),visibility 0s .34s}
+#sheet.open{transform:none;visibility:visible;transition:transform .34s cubic-bezier(.2,.9,.25,1)}
+.grab{width:36px;height:5px;border-radius:3px;background:var(--text3);opacity:.6;margin:0 auto 4px}
+.shead{display:flex;align-items:center;justify-content:space-between;height:50px}
+.shead button{color:var(--blue);font-size:17px}
+.shead b{font-weight:600}
+.big-ico{display:flex;flex-direction:column;align-items:center;gap:8px;margin:12px 0 22px}
+.big-ico .sq{width:64px;height:64px;border-radius:15px}
+.big-ico .sq svg{width:34px;height:34px}
+.big-ico b{font-size:40px;font-weight:300}
+.seg{display:flex;background:var(--fill);border-radius:9px;padding:2px;gap:2px}
+.seg button{flex:1;height:30px;border-radius:7px;font-size:14px;font-weight:500}
+.seg button.on{background:var(--card);box-shadow:0 1px 3px rgba(0,0,0,.12)}
+.swatches{display:grid;grid-template-columns:repeat(6,1fr);gap:12px;padding:14px 16px}
+.swatches button{aspect-ratio:1;border-radius:50%;box-shadow:inset 0 0 0 3px transparent}
+.swatches button.on{box-shadow:0 0 0 2px var(--card),0 0 0 4px var(--text)}
+.icons{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;padding:14px 16px}
+.icons button{aspect-ratio:1;border-radius:10px;display:grid;place-items:center;color:var(--text2)}
+.icons button svg{width:24px;height:24px}
+.icons button.on{background:var(--fill);color:var(--text)}
+
+/* ---------- toast ---------- */
+#toast{position:fixed;left:50%;bottom:calc(112px + env(safe-area-inset-bottom));width:min(340px,calc(100% - 32px));transform:translateX(-50%);height:56px;border-radius:28px;background:var(--toast);color:#fff;display:flex;align-items:center;gap:10px;padding:0 8px 0 10px;box-shadow:0 10px 30px rgba(0,0,0,.22);z-index:60}
+#toast.show{animation:toastIn .34s cubic-bezier(.2,.9,.3,1.15) both}
+#toast .ok{width:34px;height:34px;border-radius:17px;background:var(--green2);display:grid;place-items:center;flex:none}
+#toast.show .ok{animation:checkPop .4s cubic-bezier(.3,1.6,.5,1) .08s both}
+#toast .ok svg{width:18px;height:18px}
+#toast .t{flex:1;min-width:0;font-size:15px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#toast button{height:40px;padding:0 14px;border-radius:20px;background:rgba(255,255,255,.14);color:#fff;font-size:15px;font-weight:600}
+
+@keyframes pushIn{from{transform:translateX(100%)}to{transform:none}}
+@keyframes popIn{from{transform:translateX(-28%);opacity:.5}to{transform:none;opacity:1}}
+@keyframes tileIn{from{transform:scale(.9);opacity:0}to{transform:none;opacity:1}}
+@keyframes toastIn{from{transform:translate(-50%,24px) scale(.94);opacity:0}to{transform:translateX(-50%);opacity:1}}
+@keyframes checkPop{from{transform:scale(0)}to{transform:none}}
+@keyframes shake{20%,60%{transform:translateX(-10px)}40%,80%{transform:translateX(10px)}}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+
+.nf{display:block;margin-top:18px;font-size:12px;color:inherit;opacity:.55;text-align:center;text-decoration:none}
+/* ---------- sign-in onboarding ---------- */
+#login{min-height:100vh;min-height:100dvh;display:flex;flex-direction:column;text-align:center;padding:calc(10px + env(safe-area-inset-top)) 0 calc(18px + env(safe-area-inset-bottom))}
+.ob-top{display:flex;justify-content:flex-end;padding:0 18px;height:38px}
+.ob-skip{background:none;border:0;color:var(--text2);font:inherit;font-size:16px;padding:6px 4px;cursor:pointer}
+#login:not(.notlast) .ob-skip{visibility:hidden}
+.ob-track{flex:1;display:flex;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none;overscroll-behavior-x:contain}
+.ob-track::-webkit-scrollbar{display:none}
+.ob-slide{flex:0 0 100%;scroll-snap-align:center;scroll-snap-stop:always;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:0 30px}
+.ob-art{width:min(240px,62vw);height:auto;margin-bottom:30px;overflow:visible}
+.ob-slide h1{font-size:28px;font-weight:700;line-height:1.15;letter-spacing:-.4px;max-width:330px}
+.ob-slide p{color:var(--text2);font-size:17px;margin-top:10px;max-width:320px;line-height:1.4}
+.ob-dots{display:flex;justify-content:center;gap:8px;margin:16px 0 22px}
+.ob-dots i{width:7px;height:7px;border-radius:4px;background:var(--text3);opacity:.55;transition:width .25s,background .25s,opacity .25s;cursor:pointer}
+.ob-dots i.on{width:22px;background:var(--text);opacity:1}
+.ob-cta{padding:0 28px;display:flex;flex-direction:column;align-items:center}
+.ob-cta button{max-width:340px;width:100%;margin:0;height:54px;border-radius:27px;background:var(--green);color:#fff;font-weight:600}
+#login.notlast #signInBtn{display:none}
+#login:not(.notlast) #obNext{display:none}
+#login .err{color:var(--danger);font-size:15px;margin-top:10px;min-height:1.3em}
+.ob-links{margin-top:6px;font-size:12px;color:var(--text2)}
+.ob-links a{color:inherit;opacity:.8}
+.ob-links .nf{display:inline;margin:0;opacity:.8}
+.nf.src{margin-top:22px}.nf.tight{margin-top:6px}
+/* app feel: no text selection or long-press menu (except links and form fields), no double-tap zoom */
+html,body{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent}
+a,input,textarea,select,[contenteditable]{-webkit-user-select:text;user-select:text}
+a{-webkit-touch-callout:default}
+html{touch-action:manipulation}
+/* app version (filled from the running service worker, see the end of the main script) */
+.app-ver{font-size:11px;color:var(--text3,inherit);opacity:.8;text-align:center;margin-top:6px;font-variant-numeric:tabular-nums}
+.app-ver::after{content:var(--app-ver,'')}
+</style>
+</head>
+<body>
+
+<section id="login" class="hide notlast">
+  <div class="ob-top"><button class="ob-skip" id="obSkip">Skip</button></div>
+  <div class="ob-track" id="obTrack">
+    <div class="ob-slide">
+      <svg class="ob-art" viewBox="0 0 240 200" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif"><rect x="20" y="10" width="200" height="180" rx="26" fill="var(--card)"/><text x="120" y="100" text-anchor="middle" font-size="60" font-weight="300" fill="var(--text)">25</text><text x="120" y="132" text-anchor="middle" font-size="18" fill="var(--text2)">zł</text><rect x="60" y="152" width="120" height="22" rx="11" fill="#248a3d"/><text x="120" y="167" text-anchor="middle" font-size="12" font-weight="600" fill="#fff">Next</text></svg>
+      <h1>Type the amount</h1>
+      <p>The app opens straight on the keypad — no menus, no “add” button.</p>
+    </div>
+    <div class="ob-slide">
+      <svg class="ob-art" viewBox="0 0 240 200"><rect x="14" y="20" width="64" height="72" rx="14" fill="var(--card)"/><rect x="88" y="20" width="64" height="72" rx="14" fill="var(--card)"/><rect x="162" y="20" width="64" height="72" rx="14" fill="var(--card)"/><rect x="14" y="104" width="64" height="72" rx="14" fill="var(--card)"/><rect x="88" y="104" width="64" height="72" rx="14" fill="var(--card)" stroke="#248a3d" stroke-width="3"/><rect x="162" y="104" width="64" height="72" rx="14" fill="var(--card)"/><rect x="33" y="36" width="26" height="26" rx="7" fill="#34C759"/><rect x="107" y="36" width="26" height="26" rx="7" fill="#A2845E"/><rect x="181" y="36" width="26" height="26" rx="7" fill="#FF3B30"/><rect x="33" y="120" width="26" height="26" rx="7" fill="#007AFF"/><rect x="107" y="120" width="26" height="26" rx="7" fill="#5856D6"/><rect x="181" y="120" width="26" height="26" rx="7" fill="#FF2D55"/></svg>
+      <h1>Tap a category — done</h1>
+      <p>It’s saved right away. Hold a category to add a note or another date.</p>
+    </div>
+    <div class="ob-slide">
+      <svg class="ob-art" viewBox="0 0 240 200" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif"><rect x="10" y="62" width="220" height="76" rx="20" fill="var(--card)"/><rect x="26" y="80" width="40" height="40" rx="10" fill="#000"/><rect x="34" y="92" width="24" height="16" rx="3" fill="none" stroke="#fff" stroke-width="2.5"/><text x="78" y="96" font-size="13" fill="var(--text2)">Apple Pay</text><text x="78" y="118" font-size="16" font-weight="700" fill="var(--text)">Żabka</text><text x="214" y="110" text-anchor="end" font-size="17" font-weight="600" fill="var(--text)">23,49 zł</text></svg>
+      <h1>Apple Pay fills it in</h1>
+      <p>With a Shortcuts automation, card payments open Spend with the amount and shop ready.</p>
+    </div>
+    <div class="ob-slide">
+      <svg class="ob-art" viewBox="0 0 240 200"><path d="M120 20l66 24v46c0 42-28 70-66 86-38-16-66-44-66-86V44z" fill="var(--card)"/><path d="M95 98l18 18 34-38" fill="none" stroke="#248a3d" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <h1>Private, free, no ads</h1>
+      <p>Your spending syncs to your Google account and is visible only to you. Open source.</p>
+    </div>
+  </div>
+  <div class="ob-dots" id="obDots"></div>
+  <div class="ob-cta">
+    <button class="press" id="obNext">Continue</button>
+    <button class="press" id="signInBtn">Sign in with Google</button>
+    <div class="err" id="loginErr"></div>
+    <div class="ob-links"><a href="https://github.com/ibrahimovfuad/pockettools" target="_blank" rel="noopener">Open source on GitHub</a> · <a class="nf" href="https://www.netlify.com" target="_blank" rel="noopener">This site is powered by Netlify</a></div>
+    <div class="app-ver"></div>
+  </div>
+</section>
+
+<main id="app" class="hide">
+  <section class="screen" id="scrAmount">
+    <div class="nav">
+      <span class="today">Today <b id="todayTotal">0 zł</b></span>
+      <span style="display:flex;gap:10px">
+        <button class="round press" id="openMonth" aria-label="This month"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M5 20V11M12 20V5M19 20v-6"/></svg></button>
+        <button class="round press" id="openSettings" aria-label="Settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg></button>
+      </span>
+    </div>
+    <h1 class="large" style="margin-left:0">New Expense</h1>
+    <div class="amt-wrap">
+      <div class="amt" id="amtBox"><b id="amt">0</b><span>zł</span></div>
+      <div class="chips" id="chips"></div>
+    </div>
+    <div class="keys" id="keys"></div>
+    <button class="next press" id="nextBtn">Next</button>
+  </section>
+
+  <section class="screen hide" id="scrCat">
+    <div class="nav">
+      <button class="back press" id="catBack"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg>Amount</button>
+      <span class="title" id="catAmt"></span>
+      <span style="width:80px"></span>
+    </div>
+    <div id="merchantBox"></div>
+    <h1 class="large">What was it?</h1>
+    <div class="sub">Tap to save · hold to add a note</div>
+    <div class="grid" id="catGrid"></div>
+    <div id="ruleBox"></div>
+    <button class="row link press" id="editCats" style="justify-content:center;background:none;margin-top:auto">Edit Categories</button>
+  </section>
+
+  <section class="screen hide" id="scrMonth"></section>
+  <section class="screen hide" id="scrSettings"></section>
+</main>
+
+<div id="sheetBg"></div>
+<section id="sheet" role="dialog" aria-modal="true"></section>
+<div id="toast" class="hide" role="status"><span class="ok" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span><span class="t" id="toastText"></span><button id="toastUndo">Undo</button></div>
+<input type="file" id="fileIn" accept=".csv,text/csv" class="hide">
+<script src="onboarding.js"></script>
+<script src="config.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

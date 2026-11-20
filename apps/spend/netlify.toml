@@ -1,0 +1,7 @@
+# Netlify: Base directory = apps/spend
+# public/app.js is committed pre-built (npm run build), so no build step is needed.
+[build]
+  publish = "public"
+  command = "echo 'Already built'"
+  # Only build when this folder changed (saves deploy credits)
+  ignore = "git diff --quiet $CACHED_COMMIT_REF $COMMIT_REF ."

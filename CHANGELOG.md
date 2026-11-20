@@ -2,6 +2,12 @@
 
 All notable changes to Pocket Tools are listed here, newest first.
 
+## 2026-11-20
+
+### Added
+- **Spend** (spendlog2.netlify.app): log an expense in two taps — amount, then category. Your own categories (add, recolor, reorder), notes and dates, a monthly view with an optional budget, CSV export, and Apple Pay payments filled in through a Shortcuts automation with per-shop rules.
+- **Lightmeter** (lightmeter2.netlify.app): exposure meter for film cameras. Spot (tap) or average (double-tap) metering with the phone camera, a manual EV mode, lockable ISO / aperture / shutter in ⅓ stops limited to your camera and lens, out-of-range warnings, calibration, and a journal of frames per roll.
+
 ## 2026-11-19
 
 ### Changed

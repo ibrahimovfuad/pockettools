@@ -1,0 +1,246 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#000000">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="apple-mobile-web-app-title" content="Lightmeter">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
+<title>Lightmeter</title>
+<style>
+:root{
+  color-scheme:dark;
+  --bg:#000; --card:#1c1c1e; --card2:#2c2c2e; --text:#fff; --text2:#a1a1a6; --text3:#636366; --sep:#38383a;
+  --fill:#2c2c2e; --yellow:#ffd60a; --blue:#409cff; --red:#ff6961; --green:#30d158; --panel:rgba(0,0,0,.62);
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{background:#000;color:var(--text);height:100%}
+body{font:17px/1.3 -apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,sans-serif;-webkit-font-smoothing:antialiased;overflow:hidden;overscroll-behavior:none}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+input,select,textarea{font:inherit;color:var(--text)}
+.hide{display:none!important}
+.press{transition:transform .12s ease,opacity .12s ease}
+.press:active{transform:scale(.94);opacity:.8}
+
+/* ---------- meter ---------- */
+#viewer{position:fixed;inset:0;background:#111;touch-action:manipulation}
+#vid{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+#noCam{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;text-align:center;padding:30px;color:var(--text2);font-size:15px}
+#noCam button{height:44px;padding:0 20px;border-radius:22px;background:var(--fill);color:var(--text);font-weight:600}
+#reticle{position:absolute;width:64px;height:64px;margin:-32px 0 0 -32px;border:1.5px solid var(--yellow);border-radius:6px;pointer-events:none;box-shadow:0 0 0 1px rgba(0,0,0,.25)}
+#reticle.pop{animation:reticle .3s cubic-bezier(.2,.9,.3,1.3)}
+#reticle::after{content:"";position:absolute;left:50%;top:50%;width:4px;height:4px;margin:-2px;border-radius:2px;background:var(--yellow)}
+#top{position:fixed;left:0;right:0;top:0;padding:calc(10px + env(safe-area-inset-top)) 16px 30px;display:flex;align-items:flex-start;justify-content:space-between;background:linear-gradient(rgba(0,0,0,.55),transparent);pointer-events:none}
+#top>*{pointer-events:auto}
+.ev{display:flex;flex-direction:column;gap:6px}
+.ev b{font-size:34px;font-weight:600;letter-spacing:-.3px;font-variant-numeric:tabular-nums;text-shadow:0 1px 4px rgba(0,0,0,.4)}
+.ev b small{font-size:17px;font-weight:600;color:var(--yellow);margin-right:6px;letter-spacing:.5px}
+.badge{align-self:flex-start;height:24px;padding:0 10px;border-radius:12px;background:rgba(0,0,0,.45);font-size:12px;font-weight:600;letter-spacing:.2px;display:flex;align-items:center;gap:5px}
+.badge.warn{color:var(--yellow)}
+.badge i{width:7px;height:7px;border-radius:4px;background:currentColor;display:inline-block}
+.tops{display:flex;gap:10px}
+.round{width:40px;height:40px;border-radius:20px;background:rgba(0,0,0,.45);display:grid;place-items:center}
+.round svg{width:20px;height:20px}
+#modeHint{position:fixed;left:0;right:0;top:calc(98px + env(safe-area-inset-top));text-align:center;font-size:13px;color:#fff;text-shadow:0 1px 3px rgba(0,0,0,.7);pointer-events:none;transition:opacity .4s}
+
+#panel{position:fixed;left:0;right:0;bottom:0;padding:10px 0 calc(14px + env(safe-area-inset-bottom));background:var(--panel);-webkit-backdrop-filter:blur(18px) saturate(1.4);backdrop-filter:blur(18px) saturate(1.4)}
+.drow{display:flex;align-items:center;height:48px}
+.drow .lk{width:52px;height:48px;display:grid;place-items:center;color:var(--text3);flex:none}
+.drow .lk svg{width:18px;height:18px}
+.drow .lk.on{color:var(--yellow)}
+.drow .lbl{width:30px;font-size:11px;font-weight:700;color:var(--text2);letter-spacing:.5px;flex:none}
+.dial{flex:1;min-width:0;height:48px;overflow-x:auto;display:flex;scroll-snap-type:x mandatory;scrollbar-width:none;-webkit-mask-image:linear-gradient(90deg,transparent,#000 18%,#000 82%,transparent);mask-image:linear-gradient(90deg,transparent,#000 18%,#000 82%,transparent);position:relative}
+.dial::-webkit-scrollbar{display:none}
+.dial .pad{flex:0 0 calc(50% - 34px)}
+.dial button{flex:0 0 68px;scroll-snap-align:center;font-size:17px;font-weight:500;color:var(--text2);font-variant-numeric:tabular-nums;transition:color .15s,transform .15s}
+.dial button.cur{color:var(--yellow);font-weight:700;transform:scale(1.12)}
+.dial.locked button.cur{color:#fff}
+.dwrap{flex:1;min-width:0;position:relative}
+.dwrap::before{content:"";position:absolute;left:50%;top:2px;margin-left:-4px;border:4px solid transparent;border-top-color:var(--yellow);z-index:1}
+#dev{text-align:center;font-size:13px;font-weight:600;height:20px;margin:4px 0 2px;color:var(--green);transition:color .2s}
+#dev.off{color:var(--red)}
+.shootrow{display:flex;align-items:center;justify-content:space-around;padding:6px 20px 0}
+.side{width:64px;display:flex;flex-direction:column;align-items:center;gap:4px;font-size:11px;font-weight:600;color:var(--text2)}
+.side .ico{width:44px;height:44px;border-radius:22px;background:rgba(255,255,255,.12);display:grid;place-items:center;color:#fff}
+.side .ico svg{width:20px;height:20px}
+.side.on .ico{background:var(--yellow);color:#000}
+.side.on{color:var(--yellow)}
+#shot{width:74px;height:74px;border-radius:50%;border:4px solid #fff;display:grid;place-items:center}
+#shot span{width:58px;height:58px;border-radius:50%;background:#fff;transition:transform .12s}
+#shot:active span{transform:scale(.88)}
+#rollInfo{display:block;margin:10px auto 0;font-size:13px;color:var(--text2);max-width:calc(100% - 32px);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;height:24px}
+#rollInfo b{color:#fff;font-weight:600}
+#flash{position:fixed;inset:0;background:#fff;opacity:0;pointer-events:none}
+#flash.go{animation:flash .35s ease-out}
+
+/* ---------- screens ---------- */
+.screen{position:fixed;inset:0;background:var(--bg);display:flex;flex-direction:column;padding:calc(8px + env(safe-area-inset-top)) 16px calc(16px + env(safe-area-inset-bottom));overflow-y:auto;-webkit-overflow-scrolling:touch;z-index:20}
+.screen>*{flex-shrink:0}
+.screen.push-in{animation:pushIn .38s cubic-bezier(.2,.9,.25,1) both}
+.nav{display:flex;align-items:center;justify-content:space-between;min-height:44px}
+.nav .back{display:flex;align-items:center;gap:2px;color:var(--yellow);font-size:17px;height:44px;padding-right:8px}
+.nav .back svg{width:22px;height:22px}
+.nav .act{color:var(--yellow);font-size:17px;height:44px;padding:0 4px}
+h1.large{font-size:34px;font-weight:700;letter-spacing:.3px;margin:6px 4px 4px}
+.sub{font-size:15px;color:var(--text2);margin:0 4px 8px}
+.sect{font-size:13px;color:var(--text2);text-transform:uppercase;letter-spacing:.2px;margin:24px 16px 6px}
+.foot{font-size:13px;color:var(--text2);margin:8px 16px 0;line-height:1.35}
+.group{background:var(--card);border-radius:12px;overflow:hidden}
+.row{display:flex;align-items:center;gap:12px;min-height:50px;padding:6px 16px;width:100%;text-align:left;font-size:17px;position:relative;background:var(--card)}
+.row+.row::before{content:"";position:absolute;top:0;left:16px;right:0;border-top:.5px solid var(--sep)}
+.row .grow{flex:1;min-width:0}
+.row .val{color:var(--text2);font-variant-numeric:tabular-nums}
+.row .small{display:block;font-size:13px;color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.row.link{color:var(--yellow)}
+.row.danger{color:var(--red);justify-content:center}
+.row input.inl,.row select.inl{flex:1;border:0;outline:0;background:transparent;text-align:right;font-size:17px;min-width:0}
+.row select.inl{direction:rtl}
+.chev{width:9px;height:15px;flex:none;color:#5a5a5e}
+.num{font-variant-numeric:tabular-nums;color:var(--yellow);font-weight:600;width:44px;flex:none}
+.empty{color:var(--text2);text-align:center;padding:30px 20px;font-size:15px}
+.switch{appearance:none;-webkit-appearance:none;width:51px;height:31px;border-radius:16px;background:var(--fill);position:relative;flex:none;transition:background .2s;cursor:pointer}
+.switch::after{content:"";position:absolute;top:2px;left:2px;width:27px;height:27px;border-radius:14px;background:#fff;box-shadow:0 2px 4px rgba(0,0,0,.3);transition:transform .2s}
+.switch:checked{background:var(--green)}
+.switch:checked::after{transform:translateX(20px)}
+.stepper{display:flex;align-items:center;gap:6px}
+.stepper button{width:40px;height:32px;border-radius:8px;background:var(--fill);font-size:20px;line-height:1}
+.stepper b{min-width:64px;text-align:center;font-variant-numeric:tabular-nums}
+.btn{height:50px;border-radius:12px;background:var(--yellow);color:#000;font-weight:600;width:100%}
+
+/* ---------- sheet ---------- */
+#sheetBg{position:fixed;inset:-120px 0;background:rgba(0,0,0,.5);z-index:40;opacity:0;visibility:hidden;transition:opacity .25s,visibility 0s .25s}
+#sheetBg.open{opacity:1;visibility:visible;transition:opacity .25s}
+#sheet{position:fixed;left:0;right:0;bottom:0;z-index:41;max-width:600px;margin:0 auto;max-height:92vh;overflow-y:auto;background:#111;border-radius:14px 14px 0 0;padding:6px 16px calc(24px + env(safe-area-inset-bottom));transform:translateY(calc(100% + 120px));visibility:hidden;transition:transform .34s cubic-bezier(.2,.9,.25,1),visibility 0s .34s}
+#sheet.open{transform:none;visibility:visible;transition:transform .34s cubic-bezier(.2,.9,.25,1)}
+.grab{width:36px;height:5px;border-radius:3px;background:var(--text3);margin:0 auto 4px}
+.shead{display:flex;align-items:center;justify-content:space-between;height:50px}
+.shead button{color:var(--yellow);font-size:17px}
+.shead b{font-weight:600}
+
+/* ---------- toast ---------- */
+#toast{position:fixed;left:50%;top:calc(110px + env(safe-area-inset-top));transform:translateX(-50%);max-width:calc(100% - 32px);padding:10px 16px;border-radius:20px;background:rgba(44,44,46,.95);color:#fff;font-size:15px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;z-index:60;box-shadow:0 10px 30px rgba(0,0,0,.4)}
+#toast.show{animation:toastIn .3s cubic-bezier(.2,.9,.3,1.15) both}
+
+@keyframes pushIn{from{transform:translateX(100%)}to{transform:none}}
+@keyframes toastIn{from{transform:translate(-50%,-14px) scale(.95);opacity:0}to{transform:translateX(-50%);opacity:1}}
+@keyframes reticle{from{transform:scale(1.5);opacity:0}to{transform:none;opacity:1}}
+@keyframes flash{from{opacity:.55}to{opacity:0}}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+
+.nf{display:block;margin-top:18px;font-size:12px;color:inherit;opacity:.55;text-align:center;text-decoration:none}
+/* ---------- sign-in onboarding ---------- */
+#login{min-height:100vh;min-height:100dvh;display:flex;flex-direction:column;text-align:center;padding:calc(10px + env(safe-area-inset-top)) 0 calc(18px + env(safe-area-inset-bottom));background:#000;overflow:auto;position:relative;z-index:30}
+.ob-top{display:flex;justify-content:flex-end;padding:0 18px;height:38px}
+.ob-skip{background:none;border:0;color:var(--text2);font:inherit;font-size:16px;padding:6px 4px;cursor:pointer}
+#login:not(.notlast) .ob-skip{visibility:hidden}
+.ob-track{flex:1;display:flex;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none;overscroll-behavior-x:contain}
+.ob-track::-webkit-scrollbar{display:none}
+.ob-slide{flex:0 0 100%;scroll-snap-align:center;scroll-snap-stop:always;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:0 30px}
+.ob-art{width:min(240px,62vw);height:auto;margin-bottom:30px;overflow:visible}
+.ob-slide h1{font-size:28px;font-weight:700;line-height:1.15;letter-spacing:-.4px;max-width:330px}
+.ob-slide p{color:var(--text2);font-size:17px;margin-top:10px;max-width:320px;line-height:1.4}
+.ob-dots{display:flex;justify-content:center;gap:8px;margin:16px 0 22px}
+.ob-dots i{width:7px;height:7px;border-radius:4px;background:var(--text3);opacity:.55;transition:width .25s,background .25s,opacity .25s;cursor:pointer}
+.ob-dots i.on{width:22px;background:var(--yellow);opacity:1}
+.ob-cta{padding:0 28px;display:flex;flex-direction:column;align-items:center}
+.ob-cta button{max-width:340px;width:100%;margin:0;height:54px;border-radius:27px;background:var(--yellow);color:#000;font-weight:600}
+#login.notlast #signInBtn{display:none}
+#login:not(.notlast) #obNext{display:none}
+#login .err{color:var(--red);font-size:15px;margin-top:10px;min-height:1.3em}
+.ob-links{margin-top:6px;font-size:12px;color:var(--text2)}
+.ob-links a{color:inherit;opacity:.8}
+.ob-links .nf{display:inline;margin:0;opacity:.8}
+.nf.src{margin-top:22px}.nf.tight{margin-top:6px}
+/* app feel: no text selection or long-press menu (except links and form fields), no double-tap zoom */
+html,body{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent}
+a,input,textarea,select,[contenteditable]{-webkit-user-select:text;user-select:text}
+a{-webkit-touch-callout:default}
+html{touch-action:manipulation}
+/* app version (filled from the running service worker, see the end of the main script) */
+.app-ver{font-size:11px;color:var(--text3,inherit);opacity:.8;text-align:center;margin-top:6px;font-variant-numeric:tabular-nums}
+.app-ver::after{content:var(--app-ver,'')}
+</style>
+</head>
+<body>
+
+<section id="login" class="hide notlast">
+  <div class="ob-top"><button class="ob-skip" id="obSkip">Skip</button></div>
+  <div class="ob-track" id="obTrack">
+    <div class="ob-slide">
+      <svg class="ob-art" viewBox="0 0 240 200" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif"><rect x="30" y="10" width="180" height="180" rx="26" fill="#1c1c1e"/><text x="120" y="96" text-anchor="middle" font-size="48" font-weight="600" fill="#fff"><tspan fill="#ffd60a" font-size="22">EV </tspan>12⅓</text><rect x="62" y="122" width="116" height="24" rx="12" fill="#2c2c2e"/><text x="120" y="139" text-anchor="middle" font-size="13" fill="#fff">f/8 · 1/250 · 400</text></svg>
+      <h1>Your phone as a light meter</h1>
+      <p>Point the camera, read the exposure for your film camera.</p>
+    </div>
+    <div class="ob-slide">
+      <svg class="ob-art" viewBox="0 0 240 200"><rect x="20" y="10" width="200" height="180" rx="22" fill="#1c1c1e"/><rect x="128" y="62" width="48" height="48" rx="5" fill="none" stroke="#ffd60a" stroke-width="2.5"/><circle cx="152" cy="86" r="3" fill="#ffd60a"/><circle cx="76" cy="138" r="18" fill="#2c2c2e"/><circle cx="76" cy="138" r="5" fill="#fff"/></svg>
+      <h1>Tap for a spot reading</h1>
+      <p>Tap any point to meter just there. Double-tap to go back to the whole frame.</p>
+    </div>
+    <div class="ob-slide">
+      <svg class="ob-art" viewBox="0 0 240 200" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif"><rect x="10" y="30" width="220" height="140" rx="20" fill="#1c1c1e"/><g font-size="16" font-weight="600"><text x="70" y="72" fill="#ffd60a">400</text><text x="70" y="110" fill="#fff">f/8</text><text x="70" y="148" fill="#ffd60a">1/250</text></g><g fill="none" stroke-width="2.4" stroke-linecap="round"><rect x="30" y="58" width="16" height="13" rx="3" stroke="#ffd60a"/><path d="M33 58v-4a5 5 0 0 1 10 0v4" stroke="#ffd60a"/><rect x="30" y="134" width="16" height="13" rx="3" stroke="#ffd60a"/><path d="M33 134v-4a5 5 0 0 1 10 0v4" stroke="#ffd60a"/><rect x="30" y="96" width="16" height="13" rx="3" stroke="#636366"/><path d="M33 96v-4a5 5 0 0 1 10-1" stroke="#636366"/></g></svg>
+      <h1>Lock what matters</h1>
+      <p>Lock ISO, aperture or shutter — the free value follows the light. Turn any dial by hand and the rest adjusts.</p>
+    </div>
+    <div class="ob-slide">
+      <svg class="ob-art" viewBox="0 0 240 200" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif"><rect x="14" y="30" width="212" height="140" rx="20" fill="#1c1c1e"/><text x="34" y="66" font-size="13" fill="#a1a1a6">PORTRA 400 · ROLL 3</text><g font-size="14" fill="#fff"><text x="34" y="96"><tspan fill="#ffd60a" font-weight="700">12</tspan>   f/8 · 1/250</text><text x="34" y="124"><tspan fill="#ffd60a" font-weight="700">13</tspan>   f/5.6 · 1/125</text><text x="34" y="152"><tspan fill="#ffd60a" font-weight="700">14</tspan>   f/11 · 1/500</text></g></svg>
+      <h1>A notebook for every roll</h1>
+      <p>Press the shutter button to log each frame. Synced to your Google account, private, no ads.</p>
+    </div>
+  </div>
+  <div class="ob-dots" id="obDots"></div>
+  <div class="ob-cta">
+    <button class="press" id="obNext">Continue</button>
+    <button class="press" id="signInBtn">Sign in with Google</button>
+    <div class="err" id="loginErr"></div>
+    <div class="ob-links"><a href="https://github.com/ibrahimovfuad/pockettools" target="_blank" rel="noopener">Open source on GitHub</a> · <a class="nf" href="https://www.netlify.com" target="_blank" rel="noopener">This site is powered by Netlify</a></div>
+    <div class="app-ver"></div>
+  </div>
+</section>
+
+<main id="app" class="hide">
+  <div id="viewer">
+    <video id="vid" playsinline muted autoplay></video>
+    <div id="noCam" class="hide"><span id="noCamText">Camera is off.</span><button id="camRetry" class="press">Turn on camera</button></div>
+    <div id="reticle" class="hide"></div>
+  </div>
+  <div id="top">
+    <div class="ev"><b id="evText"><small>EV</small>–</b><button class="badge press" id="modeBadge"><i></i><span id="modeText">Starting…</span></button></div>
+    <div class="tops">
+      <button class="round press" id="openJournal" aria-label="Journal"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5a2 2 0 0 1 2-2h14v16H6a2 2 0 0 0-2 2z"/><path d="M4 21V5M9 8h7M9 12h5"/></svg></button>
+      <button class="round press" id="openGear" aria-label="Gear and settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg></button>
+    </div>
+  </div>
+  <div id="modeHint">Tap to spot-meter · double-tap for the whole frame</div>
+
+  <div id="panel">
+    <div class="drow hide" id="row-e"><span class="lk"></span><span class="lbl">EV</span><div class="dwrap"><div class="dial" id="dial-e"></div></div></div>
+    <div class="drow" id="row-i"><button class="lk press" data-lock="i" aria-label="Lock ISO"></button><span class="lbl">ISO</span><div class="dwrap"><div class="dial" id="dial-i"></div></div></div>
+    <div class="drow" id="row-a"><button class="lk press" data-lock="a" aria-label="Lock aperture"></button><span class="lbl">F</span><div class="dwrap"><div class="dial" id="dial-a"></div></div></div>
+    <div class="drow" id="row-s"><button class="lk press" data-lock="s" aria-label="Lock shutter speed"></button><span class="lbl">SEC</span><div class="dwrap"><div class="dial" id="dial-s"></div></div></div>
+    <div id="dev"></div>
+    <div class="shootrow">
+      <button class="side press" id="holdBtn"><span class="ico"><svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg></span>Hold</button>
+      <button id="shot" aria-label="Log this frame"><span></span></button>
+      <button class="side press" id="manualBtn"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 3v3M12 18v3M3 12h3M18 12h3"/><circle cx="12" cy="12" r="5"/></svg></span>Manual</button>
+    </div>
+    <button id="rollInfo" class="press"></button>
+  </div>
+  <div id="flash"></div>
+
+  <section class="screen hide" id="scrJournal"></section>
+  <section class="screen hide" id="scrRoll"></section>
+  <section class="screen hide" id="scrGear"></section>
+</main>
+
+<div id="sheetBg"></div>
+<section id="sheet" role="dialog" aria-modal="true"></section>
+<div id="toast" class="hide" role="status"></div>
+<script src="onboarding.js"></script>
+<script src="config.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

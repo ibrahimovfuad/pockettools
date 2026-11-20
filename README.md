@@ -15,6 +15,8 @@ Every app lives in its own folder under [`apps/`](apps/) and is deployed as an i
 | [Habits](apps/habits) | Track daily/weekly habits and streaks | JS, Firebase |
 | [Timer](apps/timer) | One-handed countdown timer with press-and-hold buttons | HTML/JS, offline |
 | [Bookshelf](apps/bookshelf) | Reading tracker with barcode scanning, quotes and a shareable shelf | JS, Firebase, zxing-wasm |
+| [Spend](apps/spend) | Log an expense in two taps — amount, then category; Apple Pay payments via a Shortcuts automation | JS, Firebase |
+| [Lightmeter](apps/lightmeter) | Exposure meter for film cameras with locks, spot metering and a roll-by-roll frame journal | JS, Firebase, camera |
 
 Each app folder has its own `README.md` with features, setup steps and deployment notes.
 
