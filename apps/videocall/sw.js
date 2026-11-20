@@ -1,5 +1,5 @@
 // Offline cache of the app shell. Bump the version whenever files change.
-const CACHE = 'videocall-v9';
+const CACHE = 'videocall-v10';
 const FILES = ['./', 'index.html', 'app.js', 'nozoom.js', 'peerjs.min.js', 'manifest.webmanifest',
   'icon-192.png', 'icon-512.png', 'apple-touch-icon.png'];
 

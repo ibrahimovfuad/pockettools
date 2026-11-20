@@ -59,9 +59,25 @@ Netlify never builds from Git (`ignore = "exit 0"` in every `netlify.toml`). `.g
 - Action `redeploy` is an emergency redeploy of `main`: fill in `apps` with `all` or folders (e.g. `apps/spend site`); it creates no tag and does not touch the Firestore rules.
 - "Shipped files" are an app's publish directory and functions. README/Markdown, `src/`, tests and package files alone never trigger a deploy — but a rebuilt `public/app.js` does.
 - Firestore rules are published in a release run (button or tag), only when they changed since the previous tag, and only after their tests pass.
+- The release jobs that use secrets run in the GitHub Environment `production`; each of them asks the required reviewer for approval. Tag runs are refused unless the tagged commit is on `main`.
 - `.github/workflows/monitor.yml` checks every morning that all sites answer and run the latest release, and opens an issue if not.
 
 Tools: `npm run release` (tag from the command line), `npm run new-app` (new app from `apps/_template`, registered everywhere), `npm run sync-shared`, `npm run check`, `npm run test:smoke`, `npm run test:rules`, `npm run test:account`. Dependabot opens monthly update PRs; an app dependency update needs a rebuild and a CACHE bump before CI passes.
+
+## Security
+
+Rules enforced after the security audit of November 2026. Keep to them when you add or change code.
+
+- **Escape everything.** Every value that is put into `innerHTML` goes through `esc()`, in text and in attributes (`data-*`, `style`, `value`, ids included). Ids are shown only after `esc()` (or `tok()` inside CSS) and ids that come from outside are checked with `/^[\w-]{1,40}$/`. Data that anybody else can write (Bookshelf public shelves) is untrusted input: whitelist the fields, coerce types, clamp numbers, allow only `https:` links, cap lengths — see `cleanPublic()` in `apps/bookshelf/src/main.js`. Look up fixed tables with `Object.hasOwn`, never with `obj[userValue]`.
+- **Firestore rules** list the fields an app writes (`keys().hasOnly([...])`) and cap sizes. When you add a field to a document, add it to the rule, to the app's field list (for example `BOOK_KEYS`) and to the tests in the same change; apps drop unknown fields before saving so an old document can never block a save. Collections of removed apps are read and delete only.
+- **Headers.** Every app and `site/` has a `_headers` with `Content-Security-Policy` (no inline scripts, `object-src 'none'`, `base-uri 'self'`, `form-action 'self'`, `frame-ancestors 'none'`), `X-Content-Type-Options: nosniff`, `Referrer-Policy` and a `Permissions-Policy` that allows only the browser features the app really uses (camera, microphone, location, motion). Firebase apps set the CSP on their own pages (`/`, `/index.html`, `/u/*`) and never on `/__/auth/*`, which is proxied from Firebase.
+- **Servers check what they get.** Netlify Functions verify the Firebase ID token (`RS256` only), cap request sizes, check push endpoints against the list of real push services, give every outgoing request a timeout, clamp numeric parameters, answer JSON with `nosniff` and have a `rateLimit` where they proxy a third-party service. Shared push code lives in `shared/push-core.mjs` (`npm run test:push`).
+- **No secrets in install steps.** In workflows a secret is given to the one step that needs it (`env:` on that step), never to a job. Dependencies are installed with `npm ci --ignore-scripts` before any secret exists; deploy tools (`netlify-cli`, `firebase-tools`) are pinned in `tools/deploy/package-lock.json` and run from `node_modules/.bin`, never with `npx -y`. Never put `${{ … }}` inside a `run:` script: pass the value through `env:` and quote it. Pin actions by commit SHA.
+- **Releases** run from `main` only and the jobs that use secrets run in the GitHub Environment `production` (required reviewer, deployments limited to `main` and `v*` tags).
+- **Sign out leaves nothing behind.** Firebase apps sign out through `signOutAndWipe()` (`shared/account.js`): stop Firestore and delete its offline copy on the device.
+- **Links never act alone.** A URL that carries data (Spend's `?amount=`) may pre-fill a screen but never saves, deletes or calls anyone. Calls in Video Call are answered with a button.
+- **Spreadsheet exports** guard cells that start with `=`, `+`, `-` or `@` (Spend does).
+- **Reports** go through private vulnerability reporting, see `SECURITY.md`.
 
 ## Before committing
 

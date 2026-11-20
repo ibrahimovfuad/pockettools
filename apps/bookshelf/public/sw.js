@@ -1,5 +1,5 @@
 // Offline cache. Bump the version whenever files change.
-const CACHE = 'polka-v13';
+const CACHE = 'polka-v14';
 const COVERS = 'polka-covers';
 const MAX_COVERS = 200;   // the cover cache is trimmed to the newest entries; the page also deletes it on sign-out
 const FILES = ['/', '/index.html', '/app.js', '/nozoom.js', '/onboarding.js', '/config.js', '/manifest.webmanifest', '/icon-192.png', '/icon-512.png', '/apple-touch-icon.png', '/zxing_reader.wasm'];

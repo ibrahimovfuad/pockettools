@@ -33,7 +33,7 @@ footer p+p{margin-top:6px}
 <main class="wrap">
   <a class="back" href="./">‹ Pocket Tools</a>
   <h1>Privacy policy</h1>
-  <p class="lead">Last updated 20 November 2026. Short version: the apps store only what you enter, only so they can work, and you can download or delete all of it inside any app.</p>
+  <p class="lead">Last updated 21 November 2026. Short version: the apps store only what you enter, only so they can work, and you can download or delete all of it inside any app.</p>
 
   <h2>Who runs this</h2>
   <div class="box">
@@ -47,7 +47,7 @@ footer p+p{margin-top:6px}
     <ul>
       <li><b>Mood</b>: your daily ratings (0–10) and optional notes, the time you agreed to store them in the cloud, and, if you turn reminders on, your reminder time, time zone and your device’s push-notification address.</li>
       <li><b>Habits</b>: your habits (names, icons, colours, archive state) and your check-ins and notes.</li>
-      <li><b>Bookshelf</b>: your books, ratings, reviews, quotes and sharing settings. If you turn on the friends link, a read-only copy of your shelf (your first name, photo, books and, if you choose, ratings and quotes) is published under a random link that anyone who has it can open.</li>
+      <li><b>Bookshelf</b>: your books, ratings, reviews, quotes and sharing settings. If you turn on the friends link, a read-only copy of your shelf (your first name, photo, books and, if you choose, ratings, reviews, the reasons for skipping a book and quotes, plus your account’s internal identifier, which the security rules use to tell who owns the shelf) is published under a random link that anyone who has it can open.</li>
       <li><b>Spend</b>: your categories, expenses (amount, date, note, shop) and your budget and shop rules.</li>
       <li><b>Weekly Digest</b>: a small count per week (how many quotes you had) and, if you turn notifications on, your push-notification address. It reads your data from Mood, Habits, Spend and Bookshelf on your device to build the stories; the server never sees that data.</li>
       <li><b>Routes</b> (only if you sign in; without an account everything stays on your phone): the places you save (Home, Work, favourite stops), your last 10 searches and your Routes settings. Never your trips or where you have been.</li>
@@ -97,7 +97,7 @@ footer p+p{margin-top:6px}
       <li><b>Push services</b> (run by Apple, Google or Mozilla, depending on your browser) deliver notifications if you turn them on. They see the notification address of your device and the notification text, which contains no personal data.</li>
       <li><b>Bookshelf</b> sends your search words or a scanned ISBN to Open Library and Google Books to find book details, loads covers from Open Library and loads a font from Google Fonts. These services see your IP address.</li>
       <li><b>Video call</b> uses the PeerJS public server to connect the two devices and a Google STUN server to find a network route; they see IP addresses, not the call itself.</li>
-      <li><b>Routes</b> uses Transitous (public-transport routing) and OpenFreeMap (map tiles); they see the places you search for and your IP address.</li>
+      <li><b>Routes</b> uses Transitous (public-transport routing) and OpenFreeMap (map tiles); they see the places you search for and your IP address. If OpenFreeMap cannot be reached, Routes falls back to the standard OpenStreetMap tile server (tile.openstreetmap.org, run by the OpenStreetMap Foundation), which then sees your IP address and the map area you are looking at. Routes also looks up live vehicle positions for a bus or tram line through its own server function; the city’s open-data service (for Warsaw, Miasto Stołeczne Warszawa) sees only a request from our server, not from you.</li>
     </ul>
   </div>
 

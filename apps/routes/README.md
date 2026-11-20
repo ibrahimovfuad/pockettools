@@ -100,3 +100,7 @@ For Google sign-in on a new domain (once, by hand):
 ## License
 
 MIT — see the [root LICENSE](../../LICENSE). MapLibre GL JS is BSD-3-Clause; map data © OpenStreetMap contributors (ODbL).
+
+## Security notes
+
+Both proxies (`transitous.mjs`, `vehicles.mjs`) use Netlify's function rate limit (60 requests a minute per visitor, answer 429 beyond that; set in each function's `config`), clamp numeric parameters (number of results, search window, …), answer only JSON with `X-Content-Type-Options: nosniff`, and only forward known endpoints and parameters.
