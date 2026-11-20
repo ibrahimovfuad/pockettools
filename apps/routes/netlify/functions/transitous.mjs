@@ -9,7 +9,7 @@ const USER_AGENT = 'PocketRoutes/1.0 (+https://github.com/ibrahimovfuad/pocketto
 
 // endpoint → [path on Transitous (newest API version first), allowed query parameters, cache seconds]
 const ENDPOINTS = {
-  plan: [['v6/plan', 'v5/plan'], ['fromPlace', 'toPlace', 'time', 'arriveBy', 'transitModes', 'numItineraries', 'pageCursor', 'maxTransfers', 'searchWindow', 'detailedTransfers', 'language', 'timetableView', 'withScheduledSkippedStops'], 30],
+  plan: [['v6/plan', 'v5/plan'], ['fromPlace', 'toPlace', 'time', 'arriveBy', 'transitModes', 'numItineraries', 'pageCursor', 'maxTransfers', 'searchWindow', 'maxPreTransitTime', 'maxPostTransitTime', 'detailedTransfers', 'language', 'timetableView', 'withScheduledSkippedStops'], 30],
   geocode: [['v1/geocode'], ['text', 'place', 'placeBias', 'numResults', 'type', 'language', 'mode'], 3600],
   'reverse-geocode': [['v1/reverse-geocode'], ['place', 'type', 'numResults'], 3600],
   stoptimes: [['v6/stoptimes', 'v5/stoptimes'], ['stopId', 'time', 'n', 'arriveBy', 'window', 'mode', 'language', 'pageCursor', 'direction', 'radius'], 10],

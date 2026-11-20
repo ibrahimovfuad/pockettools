@@ -97,15 +97,17 @@ export class RouteMap {
     this.me.setLngLat([pos.lon, pos.lat]);
     this.acc = { type: 'FeatureCollection', features: [{ type: 'Feature', properties: {}, geometry: { type: 'Polygon', coordinates: [circle(pos.lat, pos.lon, Math.min(pos.acc || 30, 500))] } }] };
     if (this.ok && this.map.getSource('acc')) this.map.getSource('acc').setData(this.acc);
-    this.setBeam(this.heading, showBeam);
+    this.setBeam(this.heading, showBeam, this.beamLow);
   }
-  setBeam(heading, show) {
+  setBeam(heading, show, low) {
     this.heading = heading;
     if (!this.me) return;
     const beam = this.me.getElement().querySelector('.beam');
     if (!beam) return;
-    beam.style.display = show && heading != null ? 'block' : 'none';
-    if (heading != null) beam.style.transform = `rotate(${heading - (this.map ? this.map.getBearing() : 0)}deg)`;
+    const visible = !!show && this.heading != null;
+    if (beam.style.display !== (visible ? 'block' : 'none')) beam.style.display = visible ? 'block' : 'none';
+    this.beamLow = !!low; beam.classList.toggle('low', !!low);
+    if (visible) beam.style.transform = `rotate(${(this.heading - (this.map ? this.map.getBearing() : 0)).toFixed(1)}deg)`;
   }
   clearMe() { if (this.me) { this.me.remove(); this.me = null; } this.acc = EMPTY; if (this.ok && this.map.getSource('acc')) this.map.getSource('acc').setData(EMPTY); }
   rotateTo(deg) { try { this.map.easeTo({ bearing: deg, duration: 120, easing: t => t }); } catch (e) {} }

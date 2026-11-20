@@ -4,6 +4,7 @@ import * as api from './api.js';
 import * as loc from './locate.js';
 import { RouteMap } from './map.js';
 import { createTracker, snapshot } from './live.js';
+import { bottomSheet } from './sheet.js';
 import { initAccount as initCloud, accountAvailable, signIn, signOutUser, currentUser, firebaseHandles, stopSync } from './cloud.js';
 import { initAccount } from './account.js';   // shared "Account & data" section (export, delete) — see shared/account.js
 const ACCOUNT = { app: 'routes', getUser: currentUser, getFirebase: firebaseHandles, demoKeys: [], stopListening: stopSync };
@@ -18,7 +19,7 @@ const city = () => cityById(store.get().city);
 const S = {
   from: { gps: true }, to: null, fromText: 'Current location', toText: '',
   when: { mode: 'now', at: null }, mode: 'all',
-  results: null, sort: 'best', itin: null, stop: null, track: null
+  results: null, sort: 'time', itin: null, stop: null, track: null
 };
 const stack = [{ screen: 'home' }];
 let cleanups = [];                       // functions to run when leaving the current screen
@@ -40,6 +41,7 @@ function show() {
   runCleanups();
   closeOverlay();
   const cur = stack[stack.length - 1];
+  document.body.classList.toggle('nopage', cur.screen === 'route' || cur.screen === 'track');   // full-screen map: the page itself never scrolls
   ({ home: showHome, results: showResults, route: showRoute, stop: showStop, track: showTrack, settings: showSettings }[cur.screen] || showHome)(cur);
   window.scrollTo(0, 0);
 }
@@ -107,7 +109,7 @@ async function search() {
     msg('');
   }
   store.addHistory(S.to);
-  S.results = { itins: [], next: null, loading: true, error: '' };
+  S.results = { itins: [], cursors: null, more: false, loading: true, error: '' };
   go('results');
 }
 
@@ -142,8 +144,9 @@ async function loadNearby(force) {
 }
 
 // ================= results =================
+// Default: by departure time (like a timetable). "Fewest changes" and "Less walking" re-sort the same list.
 function sorted(list) {
-  const key = { best: i => [ms(i.endTime), i.transfers], changes: i => [i.transfers, ms(i.endTime)], walk: i => [V.walkSeconds(i), ms(i.endTime)] }[S.sort];
+  const key = { time: i => [ms(i.startTime), ms(i.endTime)], changes: i => [i.transfers, ms(i.endTime)], walk: i => [V.walkSeconds(i), ms(i.endTime)] }[S.sort];
   return list.map((it, i) => ({ it, k: key(it), i })).sort((a, b) => a.k[0] - b.k[0] || a.k[1] - b.k[1] || a.i - b.i).map(x => x.it);
 }
 function showResults() {
@@ -165,9 +168,9 @@ async function loadResults(more) {
   renderList();
   try {
     const time = S.when.mode === 'now' ? undefined : S.when.at;
-    const r = await api.plan({ from: S.from, to: S.to, time, arriveBy: S.when.mode === 'arr', mode: S.mode, cursor: more ? R.next : undefined });
-    R.itins = more ? R.itins.concat(r.itineraries.filter(n => !R.itins.some(o => o.id === n.id))) : r.itineraries;
-    R.next = r.next;
+    const r = await api.plan({ from: S.from, to: S.to, time, arriveBy: S.when.mode === 'arr', mode: S.mode, cursors: more ? R.cursors : undefined });
+    R.itins = more ? api.mergeItineraries([R.itins, r.itineraries]) : r.itineraries;
+    R.cursors = r.cursors; R.more = r.hasMore;
   } catch (e) { R.error = api.friendly(e); }
   R.loading = false;
   if (S.results === R) renderList();
@@ -176,14 +179,17 @@ function renderList() {
   const list = $('list'), R = S.results; if (!list || !R) return;
   const now = Date.now(), items = sorted(R.itins);
   S.shown = items;
+  // "Best" highlight: earliest arrival, then fewest changes, then least walking
+  let best = -1;
+  items.forEach((it, i) => { if (best < 0 || [ms(it.endTime) - ms(items[best].endTime), it.transfers - items[best].transfers, V.walkSeconds(it) - V.walkSeconds(items[best])].find(d => d !== 0) < 0) best = i; });
   let html = '';
   if (R.error && !items.length) html = `<div class="err" role="alert">${esc(R.error)}</div><button class="linkbtn press" data-act="retry">Try again</button>`;
   else if (R.loading && !items.length) html = '<div class="skel"></div><div class="skel"></div><div class="skel"></div>';
   else if (!items.length) html = '<div class="note">No connections found for this time. Try a later time, other places, or all modes of transport.</div>';
-  else html = `<div class="sec" style="margin-top:14px">${S.sort === 'best' ? 'Best' : S.sort === 'changes' ? 'Fewest changes first' : 'Least walking first'}</div>` + items.map((it, i) => V.itinCard(it, i, now)).join('');
+  else html = `<div class="sec" style="margin-top:14px">${S.sort === 'time' ? 'Earliest departure first' : S.sort === 'changes' ? 'Fewest changes first' : 'Least walking first'}</div>` + items.map((it, i) => V.itinCard(it, i, now, i === best)).join('');
   list.innerHTML = html;
   const more = $('more');
-  if (more) more.innerHTML = items.length && R.next ? `<button class="linkbtn press" style="width:100%" data-act="later" ${R.loading ? 'disabled' : ''}>${R.loading ? 'Loading…' : 'Later connections'}</button>${R.error ? `<div class="err">${esc(R.error)}</div>` : ''}` : '';
+  if (more) more.innerHTML = items.length && R.more ? `<button class="linkbtn press" style="width:100%" data-act="later" ${R.loading ? 'disabled' : ''}>${R.loading ? 'Loading…' : 'Later connections'}</button>${R.error ? `<div class="err">${esc(R.error)}</div>` : ''}` : '';
 }
 
 // ================= map helpers shared by route and track =================
@@ -193,39 +199,35 @@ function legCoords(leg) { return leg.legGeometry && leg.legGeometry.points ? dec
 // Wire up the user's position, compass, and the map buttons for a map screen
 function attachMe(map, mapwrap) {
   const settings = () => store.get().settings;
-  let located = false;
+  let first = true, lastBearing = null;
   const paint = st => {
-    if (st.pos) map.setMe(st.pos, settings().direction);
-    map.setBeam(st.heading, settings().direction);
-    if (settings().rotate && st.heading != null) map.rotateTo(st.heading);
-    else if (map.map && !settings().rotate && Math.abs(map.map.getBearing()) > 0.5 && !located) map.resetNorth();
-    located = true;
-    const b = $('dirbtn'); if (b) b.innerHTML = dirLabel();
+    const dir = settings().direction;
+    if (st.pos) map.setMe(st.pos, dir);
+    map.setBeam(st.heading, dir, st.headingLow);
+    if (dir && settings().rotate && st.heading != null && (lastBearing == null || Math.abs(((st.heading - lastBearing + 540) % 360) - 180) >= 3)) { lastBearing = st.heading; map.rotateTo(st.heading); }
+    else if (first && !settings().rotate && map.map && Math.abs(map.map.getBearing()) > 0.5) map.resetNorth();
+    first = false;
   };
   loc.startWatch();
   const off = loc.onLocation(paint);
   if (loc.state.pos) paint(loc.state);
-  // Android and desktop start the compass at once; iOS needs a tap (the direction button)
+  // Android and desktop start the compass at once. iOS asks for motion access only from a tap, so the first tap on
+  // the map (or on the locate button) asks, silently and once; no button on the map for it.
   if (settings().direction && !loc.compassNeedsTap()) loc.enableCompass();
-  cleanup(() => { off(); loc.stopWatch(); if (loc.state.users === 0) loc.disableCompass(); });
-  map.onRotate(() => map.setBeam(loc.state.heading, settings().direction));
-}
-const dirLabel = () => {
-  const on = store.get().settings.direction;
-  if (on && loc.compassNeedsTap() && !loc.state.compassOn) return `${V.ic('nav', 15, 2.2)}Enable direction`;
-  return `${V.ic('nav', 15, 2.2)}Direction ${on ? 'on' : 'off'}`;
-};
-async function toggleDirection() {
-  const on = store.get().settings.direction;
-  if (on && loc.compassNeedsTap() && !loc.state.compassOn) { await loc.enableCompass(); }       // the tap itself is the permission gesture
-  else if (on) { store.setSettings({ direction: false }); loc.disableCompass(); }
-  else { store.setSettings({ direction: true }); await loc.enableCompass(); }
-  const b = $('dirbtn'); if (b) b.innerHTML = dirLabel();
-  const st = loc.state; if (st.pos) { const m = currentMap; if (m) { m.setMe(st.pos, store.get().settings.direction); m.setBeam(st.heading, store.get().settings.direction); } }
+  else if (settings().direction) loc.enableCompass({ gesture: false });   // already allowed in this session: resumes without a tap
+  const wrap = mapwrap || document.querySelector('.mapwrap');
+  const onTap = () => { if (settings().direction && loc.compassWantsTap()) loc.enableCompass({ gesture: true }); };
+  if (wrap) { wrap.addEventListener('click', onTap, true); wrap.addEventListener('touchend', onTap, { capture: true, passive: true }); }
+  cleanup(() => {
+    off(); loc.stopWatch();
+    if (wrap) { wrap.removeEventListener('click', onTap, true); wrap.removeEventListener('touchend', onTap, true); }
+    if (loc.state.users === 0) loc.releaseCompass();
+  });
+  map.onRotate(() => map.setBeam(loc.state.heading, settings().direction, loc.state.headingLow));
 }
 let currentMap = null;
-const mapButtons = `<button class="mapbtn p press" id="dirbtn" style="top:64px;right:12px" data-act="dir"></button>
-  <button class="mapbtn c press" style="top:12px;right:12px" data-act="center-me" aria-label="Show my position">${V.ic('locate', 22)}</button>
+// Only the round back and locate buttons float over the map (no pills: see "iOS UI pitfalls" in AGENTS.md)
+const mapButtons = `<button class="mapbtn c press" style="top:12px;right:12px" data-act="center-me" aria-label="Show my position">${V.ic('locate', 22)}</button>
   <button class="mapbtn c press" style="top:12px;left:12px" data-act="back" aria-label="Back">${V.ic('back', 22, 2.4)}</button>`;
 function makeMap(el, onFail) {
   const map = new RouteMap(el, { center: city(), zoom: 12, onFail: t => { const w = el.parentElement; if (w && !w.querySelector('.mapmsg')) w.insertAdjacentHTML('afterbegin', `<div class="mapmsg" role="status">${esc(t)}</div>`); if (onFail) onFail(t); } });
@@ -234,19 +236,32 @@ function makeMap(el, onFail) {
   return map;
 }
 
+// The route and tracking sheets: three snap points, and the map's attribution rides on top of the sheet
+function attachSheet(id) {
+  const scr = document.querySelector('.mapscreen');
+  const sh = bottomSheet($(id), { initial: 'half', onSnap: (n, v) => { if (scr) scr.style.setProperty('--sheet-h', `${v}px`); } });
+  cleanup(() => sh.destroy());
+  return sh;
+}
+// room for the half-open sheet and the round buttons when fitting the map to a route
+const fitPad = (sh, extra = 24) => ({ top: 70, left: 40, right: 40, bottom: Math.min(sh.visible('half') + extra, Math.round(window.innerHeight * 0.6)) });
+
 // ================= route =================
 function showRoute(cur) {
   const it = S.itin = cur.itin;
   const legs = it.legs;
   const walkSec = legs.filter(l => l.mode === 'WALK').reduce((a, l) => a + l.duration, 0);
-  mapScreen(`<div class="screen mapscreen">
-    <div class="mapwrap"><div class="mapel" id="map"></div>${mapButtons}</div>
-    <div class="msheet"><span class="grab"></span>
-      <div class="r1"><span class="a">${clock(it.startTime)} – ${clock(it.endTime)}</span><span class="b">${Math.round(it.duration / 60)} min</span></div>
-      <div class="sub">${it.transfers === 0 ? 'no changes' : it.transfers === 1 ? '1 change' : `${it.transfers} changes`} · ${Math.round(walkSec / 60)} min walking</div>
-      <div style="margin-top:8px">${V.legRows(it)}</div>
-      <div class="hint">Map © OpenStreetMap contributors. Times use live data where the transit agency provides it.</div>
-      ${V.footer()}</div></div>`);
+  const names = { from: S.from && (S.from.gps ? 'Current location' : S.from.name) || 'start', to: S.to && S.to.name || 'destination' };
+  mapScreen(`<div class="screen mapscreen"><div class="mapwrap"><div class="mapel" id="map"></div>${mapButtons}</div>
+    ${V.sheetShell({
+      id: 'rs', label: 'Route details', open: 'Show steps', close: 'Show map',
+      sum: `<div class="r1"><span class="a">${clock(it.startTime)} – ${clock(it.endTime)}</span><span class="b">${Math.round(it.duration / 60)} min</span></div>
+        <div class="sub">${it.transfers === 0 ? 'no changes' : it.transfers === 1 ? '1 change' : `${it.transfers} changes`} · ${Math.round(walkSec / 60)} min walking</div>`,
+      body: `<div style="margin-top:4px">${V.legRows(it, names)}</div>
+        <div class="hint">Map © OpenStreetMap contributors. Times use live data where the transit agency provides it.</div>
+        ${V.footer()}`
+    })}</div>`);
+  const sheet = attachSheet('rs');
   const map = makeMap($('map'));
   const all = [], drawn = [], stops = [];
   for (const l of legs) {
@@ -256,9 +271,8 @@ function showRoute(cur) {
     if (tr) { stops.push({ lon: l.from.lon, lat: l.from.lat, color: MODE_COLOR[modeKind(l.mode)], r: 6 }, { lon: l.to.lon, lat: l.to.lat, color: MODE_COLOR[modeKind(l.mode)], r: 6 }); }
   }
   map.setRoute(drawn, stops);
-  map.fit(all, 50);
+  map.fit(all, fitPad(sheet));
   attachMe(map);
-  $('dirbtn').innerHTML = dirLabel();
   // live vehicles of this journey (only trips that are running now or about to)
   if (store.get().settings.live) {
     const run = async () => {
@@ -307,13 +321,13 @@ const openStop = p => go('stop', { stop: { name: p.name, lat: p.lat, lon: p.lon,
 // ================= live tracking =================
 function showTrack(cur) {
   const t = S.track = cur.target;
-  mapScreen(`<div class="screen mapscreen"><div class="mapwrap tall"><div class="mapel" id="map"></div>${mapButtons}</div>
-    <div class="msheet" id="tsheet" aria-live="polite"></div></div>`);
+  const init = V.trackSheet(t, null, '');
+  mapScreen(`<div class="screen mapscreen"><div class="mapwrap"><div class="mapel" id="map"></div>${mapButtons}</div>
+    ${V.sheetShell({ id: 'ts', label: 'Live tracking', open: 'Show details', close: 'Show map', sum: init.sum, body: init.body })}</div>`);
   const map = makeMap($('map'));
+  const sheet = attachSheet('ts');
   attachMe(map);
-  $('dirbtn').innerHTML = dirLabel();
-  const sheet = $('tsheet');
-  sheet.innerHTML = V.trackSheet(t, null, '');
+  const paintSheet = (vm, err) => { const r = V.trackSheet(t, vm, err); const a = $('ts-sum'), b = $('ts-body'); if (a) a.innerHTML = r.sum; if (b) b.innerHTML = r.body; };
   let fitted = false, vibrated = {}, lastVm = null;
   let lock = null;
   const wake = async () => { try { if (navigator.wakeLock) lock = await navigator.wakeLock.request('screen'); } catch (e) {} };
@@ -326,7 +340,7 @@ function showTrack(cur) {
     target: t, city: city(),
     onUpdate: vm => {
       lastVm = vm; S.vm = vm;
-      sheet.innerHTML = V.trackSheet(t, vm, '');
+      paintSheet(vm, '');
       const tr = vm.trip, col = MODE_COLOR[tr.kind] || MODE_COLOR.other;
       const tgt = tr.stops[vm.targetIndex];
       // faint full route, solid from the vehicle to the target stop
@@ -340,24 +354,24 @@ function showTrack(cur) {
       map.setRoute([{ coords: tr.coords, color: col, opacity: solid.length ? 0.35 : 1 }].concat(solid.length > 1 ? [{ coords: solid, color: col }] : []),
         [{ lon: tgt.lon, lat: tgt.lat, color: '#0a63ce', r: 8 }].concat(tr.stops.filter((s, i) => i !== vm.targetIndex && i > vm.currentIndex && i <= vm.targetIndex).map(s => ({ lon: s.lon, lat: s.lat, color: col, r: 4 }))));
       map.setVehicles(vm.pos ? [{ id: 'v', line: tr.line, kind: tr.kind, pos: vm.pos, source: vm.source }] : []);
-      if (!fitted) { fitted = true; map.fit(vm.pos ? [vm.pos, [tgt.lon, tgt.lat]].concat(loc.state.pos ? [[loc.state.pos.lon, loc.state.pos.lat]] : []) : tr.coords, 70); }
+      if (!fitted) { fitted = true; map.fit(vm.pos ? [vm.pos, [tgt.lon, tgt.lat]].concat(loc.state.pos ? [[loc.state.pos.lon, loc.state.pos.lat]] : []) : tr.coords, fitPad(sheet, 30)); }
       // one stop away → vibrate once (phones without vibration still show the message in the sheet)
       const near = vm.metro ? vm.departMs <= 60000 && vm.departMs > -30000 : vm.stopsAway != null && vm.stopsAway <= 1;
       const key = `${vm.phase}-${vm.targetIndex}`;
       if (near && !vibrated[key]) { vibrated[key] = true; try { navigator.vibrate && navigator.vibrate([250, 120, 250]); } catch (e) {} }
     },
-    onError: e => { sheet.innerHTML = V.trackSheet(t, lastVm, api.friendly(e)); }
+    onError: e => { paintSheet(lastVm, api.friendly(e)); }
   });
   tracker.start();
   cleanup(() => tracker.stop());
-  const tick = setInterval(() => { if (lastVm && $('tsheet')) sheet.innerHTML = V.trackSheet(t, lastVm, ''); }, 1000);   // "updated 8 s ago"
+  const tick = setInterval(() => { if (lastVm && $('ts-sum')) paintSheet(lastVm, ''); }, 1000);   // "updated 8 s ago"
   cleanup(() => clearInterval(tick));
 }
 
 // ================= settings =================
 function showSettings() {
   const d = store.get();
-  app.innerHTML = V.settings({ places: d.places, settings: d.settings, account: accountState, accountAvailable });
+  app.innerHTML = V.settings({ places: d.places, settings: d.settings, account: accountState, accountAvailable, compassDenied: d.settings.direction && loc.compassDenied() });
   if (accountState.signedIn) initAccount(ACCOUNT);
 }
 
@@ -411,7 +425,7 @@ function modesSheet() {
 }
 function whenChanged() {
   const cur = stack[stack.length - 1].screen;
-  if (cur === 'results') { S.results = { itins: [], next: null, loading: true, error: '' }; show(); }
+  if (cur === 'results') { S.results = { itins: [], cursors: null, more: false, loading: true, error: '' }; show(); }
   else showHome();
 }
 
@@ -439,7 +453,7 @@ function cityOverlay() {
 function placePicker(kind) {
   const label = kind === 'home' ? 'Home' : 'Work';
   const el = openOverlay(V.dialog({
-    title: `Set ${label}`, body: `<label class="search">${V.ic('search', 18)}<span class="sr">Address or place</span><input id="pq" placeholder="Address or place" autocomplete="off"></label><div id="pres"></div><p>Saved on this device only${accountAvailable ? ' (and in your account if you sign in)' : ''}.</p>`, actions: '<button class="btn gray press" data-x="no">Cancel</button>'
+    title: `Set ${label}`, body: `<form class="ff" action="#" novalidate><label class="search">${V.ic('search', 18)}<span class="sr">Address or place</span><input id="pq" placeholder="Address or place" autocomplete="off"></label></form><div id="pres"></div><p>Saved on this device only${accountAvailable ? ' (and in your account if you sign in)' : ''}.</p>`, actions: '<button class="btn gray press" data-x="no">Cancel</button>'
   }));
   let items = [], seq = 0, timer = null;
   el.addEventListener('input', e => {
@@ -530,9 +544,9 @@ const A = {
   'pick-recent'(b) { const p = store.get().history[+b.dataset.i]; if (p) { setField('to', p); search(); } },
   nearby: () => loadNearby(true),
   'open-stop'(b) { const s = S.nearby && S.nearby[+b.dataset.i]; if (s) openStop(s); },
-  retry() { S.results = { itins: [], next: null, loading: true, error: '' }; loadResults(false); },
+  retry() { S.results = { itins: [], cursors: null, more: false, loading: true, error: '' }; loadResults(false); },
   later() { loadResults(true); },
-  sort(b) { S.sort = S.sort === b.dataset.s ? 'best' : b.dataset.s; showResults(); },
+  sort(b) { S.sort = S.sort === b.dataset.s ? 'time' : b.dataset.s; showResults(); },
   'open-itin'(b) { const it = S.shown[+b.dataset.i]; if (it) go('route', { itin: it }); },
   track(b) {
     const l = S.itin.legs[+b.dataset.i], kind = modeKind(l.mode);
@@ -548,7 +562,7 @@ const A = {
     if (store.isSaved(id)) store.removePlace(id); else store.savePlace({ kind: 'stop', name: st.name, sub: 'Stop', lat: st.lat, lon: st.lon, stopId: st.stopId });
     showStop(stack[stack.length - 1]);
   },
-  dir: toggleDirection,
+  'compass-retry': async () => { await loc.enableCompass({ gesture: 'retry' }); showSettings(); },
   'center-me'() {
     const p = loc.state.pos;
     if (p && currentMap) currentMap.flyTo(p.lon, p.lat, 15);
@@ -579,8 +593,32 @@ document.addEventListener('input', e => {
 });
 document.addEventListener('focusin', e => {
   const t = e.target;
+  if (/^(INPUT|TEXTAREA)$/.test(t.tagName) && t.type !== 'file' && t.type !== 'checkbox') revealField(t);
   if (t.id === 'from' || t.id === 'to') { activeField = t.id; if (t.id === 'from') { t.select(); suggest('from'); } }
 });
+// Every text field sits in its own <form>, so the iOS keyboard bar has no previous/next arrows to other fields
+document.addEventListener('submit', e => e.preventDefault());
+
+// ---- keyboard ----
+// iOS does not shrink the layout viewport when the keyboard opens, and iOS 26 floats an accessory bar (arrows, Done)
+// above the keyboard. Keep the bottom of the page and of dialogs clear of both: --kb is the covered height.
+const vv = window.visualViewport;
+let kbTimer = null;
+function syncKeyboard() {
+  const el = document.activeElement, editing = !!el && /^(INPUT|TEXTAREA)$/.test(el.tagName);
+  const covered = vv ? Math.max(0, Math.round(window.innerHeight - vv.height - vv.offsetTop)) : 0;
+  const kb = editing && covered > 60 ? covered + 56 : 0;      // 56 px for the accessory bar
+  const root = document.documentElement.style;
+  if (root.getPropertyValue('--kb') !== `${kb}px`) root.setProperty('--kb', `${kb}px`);
+  return kb;
+}
+if (vv) { vv.addEventListener('resize', syncKeyboard); vv.addEventListener('scroll', syncKeyboard); }
+document.addEventListener('focusout', () => { clearTimeout(kbTimer); kbTimer = setTimeout(syncKeyboard, 150); });
+function revealField(t) {
+  clearTimeout(kbTimer);
+  kbTimer = setTimeout(() => { syncKeyboard(); const box = t.closest('.sbox') || t.closest('.search') || t; try { box.scrollIntoView({ block: 'start', behavior: 'smooth' }); } catch (e) {} }, 350);
+}
+
 document.addEventListener('keydown', e => {
   if (e.key === 'Enter' && (e.target.id === 'to' || e.target.id === 'from')) {
     e.preventDefault();
@@ -592,7 +630,11 @@ document.addEventListener('change', e => {
   const k = e.target.dataset && e.target.dataset.set;
   if (!k) return;
   store.setSettings({ [k]: e.target.checked });
-  if (k === 'direction' && e.target.checked && loc.state.users > 0) loc.enableCompass();
+  if (k === 'direction') {
+    // flipping the switch is a tap, so iOS may show its motion-access question right here
+    if (e.target.checked) loc.enableCompass({ gesture: 'retry' }).then(() => { if (loc.compassDenied() && stack[stack.length - 1].screen === 'settings' && !overlayEl) showSettings(); });
+    else if (loc.state.users === 0) loc.disableCompass();
+  }
 });
 
 // ================= start =================

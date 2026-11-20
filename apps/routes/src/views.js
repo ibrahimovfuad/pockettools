@@ -19,6 +19,7 @@ const P = {
   nav: '<path d="M12 3l7 17-7-4-7 4z"/>',
   search: '<circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/>',
   dl: '<path d="M12 4v11M7.5 10.5L12 15l4.5-4.5M5 19.5h14"/>',
+  addr: '<path d="M12 21V3M6.5 5h9l3 3-3 3h-9zM17.5 14h-9l-3 3 3 3h9"/>',
   check: '<path d="M5 12.5l4.5 4.5L19 7.5"/>'
 };
 export const ic = (k, s = 18, sw = 2, color) => `<svg class="i" width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="${color || 'currentColor'}" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${P[k] || ''}</svg>`;
@@ -30,7 +31,8 @@ export const footer = () => `<footer>
 </footer>`;
 
 export const chip = (label, kind, big) => `<span class="lc ${modeKind(kind)}${big ? ' lg' : ''}">${esc(label)}</span>`;
-const placeIcon = p => ({ home: 'home', work: 'work', stop: 'stop' }[p.kind] || 'pin');
+// Address / Stop / Place each get their own icon (saved and recent places only keep kind + the "Address · …" line)
+const placeIcon = p => ({ home: 'home', work: 'work', stop: 'stop' }[p.kind] || (p.type === 'address' || /^Address\b/.test(p.sub || '') ? 'addr' : 'pin'));
 
 export const placeRow = (p, act, attrs = '') => `<button class="row press" data-act="${act}" ${attrs}>
   <span class="ico">${ic(placeIcon(p), 18)}</span>
@@ -52,9 +54,9 @@ export function home(c) {
   <div class="sbox rise">
     <div class="gut" aria-hidden="true"><span class="d"></span><span class="l"></span>${ic('pin', 14, 2.6)}</div>
     <div class="fields">
-      <label><span class="sr">From</span><input id="from" class="from" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="next" placeholder="From" value="${esc(c.fromText)}"></label>
+      <form class="ff" action="#" novalidate><label><span class="sr">From</span><input id="from" class="from" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="next" placeholder="From" value="${esc(c.fromText)}"></label></form>
       <div class="sep"></div>
-      <label><span class="sr">To</span><input id="to" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="search" placeholder="Where to?" value="${esc(c.toText)}"></label>
+      <form class="ff" action="#" novalidate><label><span class="sr">To</span><input id="to" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="search" placeholder="Where to?" value="${esc(c.toText)}"></label></form>
     </div>
     <button class="ib press" data-act="swap" aria-label="Swap from and to">${ic('swap', 20)}</button>
   </div>
@@ -91,15 +93,22 @@ const legChips = itin => itin.legs.map(l => isTransit(l.mode)
   : (l.mode === 'WALK' && Math.round(l.duration / 60) >= 1 ? `<span class="walkc">${ic('walk', 14, 2)}${Math.round(l.duration / 60)}</span>` : '')).filter(Boolean).join('<span class="sepc" aria-hidden="true">›</span>');
 export const walkSeconds = itin => itin.legs.filter(l => l.mode === 'WALK').reduce((a, l) => a + l.duration, 0);
 
-export function itinCard(itin, i, now) {
+export function itinCard(itin, i, now, isBest) {
   const first = itin.legs.find(l => isTransit(l.mode));
   const leaves = first ? Math.round((ms(first.startTime) - now) / 60000) : null;
   const n = itin.transfers;
-  return `<button class="itin press rise${i === 0 ? ' best' : ''}" data-act="open-itin" data-i="${i}">
-    <div class="r1"><span class="a">${clock(itin.startTime)} – ${clock(itin.endTime)}</span><span class="b">${dur(itin.duration)}</span></div>
+  return `<button class="itin press rise${isBest ? ' best' : ''}" data-act="open-itin" data-i="${i}">
+    <div class="r1"><span class="a">${clock(itin.startTime)} – ${clock(itin.endTime)}${isBest ? '<span class="bestb">Best</span>' : ''}</span><span class="b">${dur(itin.duration)}</span></div>
     <div class="r2">${legChips(itin)}</div>
     <div class="r3"><span class="l">${first ? `${first.realTime ? ic('live', 13, 2.2) : ''}<span>${leaves <= 0 ? 'Leaves now' : leaves < 60 ? `Leaves in ${leaves} min` : `Leaves at ${clock(first.startTime)}`} · ${esc(first.from.name)}</span>` : 'Walk only'}</span><span class="r">${n === 0 ? 'no changes' : n === 1 ? '1 change' : `${n} changes`}</span></div></button>`;
 }
+
+// ----- bottom sheet shell (see sheet.js): the head is the peek bar, the body holds the details -----
+export const sheetShell = ({ id, label, sum, body, open, close }) => `<section class="bsheet" id="${id}" aria-label="${esc(label)}">
+  <div class="bs-head"><span class="grab" aria-hidden="true"></span>
+    <div class="bs-row"><div class="bs-sum" id="${id}-sum">${sum}</div>
+      <button class="bs-tg press" type="button" aria-expanded="true" aria-controls="${id}-body" data-open="${esc(open)}" data-close="${esc(close)}"><span class="bs-lbl">${esc(close)}</span>${ic('chevD', 18, 2.4)}</button></div></div>
+  <div class="bs-body" id="${id}-body">${body}</div></section>`;
 
 // ----- route detail -----
 export function delayText(leg) {
@@ -108,12 +117,22 @@ export function delayText(leg) {
   const d = Math.round((ms(leg.startTime) - ms(leg.scheduledStartTime)) / 60000);
   return d <= 0 ? { t: 'live: on time', c: 'var(--green)' } : { t: `live: ${d} min late`, c: '#b45309' };
 }
-export function legRows(itin) {
+// MOTIS names a free-form start/end point "START" / "END"; show what the person searched for instead
+const nm = (p, fallback) => (p && p.name && !/^(start|end|origin|destination)$/i.test(String(p.name).trim()) ? p.name : fallback);
+// A service alert: always an English label; the text from the transit agency (often Polish) opens on tap
+function alertHtml(a) {
+  const head = String(a.headerText || '').trim(), body = String(a.descriptionText || '').trim();
+  const parts = [a.effectDetail, a.causeDetail].map(x => String(x || '').trim()).filter(x => x && x !== head && x !== body);
+  if (!head && !body && !parts.length) return '';
+  const url = /^https?:\/\//i.test(a.url || '') ? a.url : '';
+  return `<details class="alert"><summary>Service alert</summary><div class="ab">${head ? `<b>${esc(head)}</b>` : ''}${body && body !== head ? `<p>${esc(body)}</p>` : ''}${parts.map(x => `<p>${esc(x)}</p>`).join('')}${url ? `<p><a href="${esc(url)}" target="_blank" rel="noopener">More information</a></p>` : ''}</div></details>`;
+}
+export function legRows(itin, names = {}) {
   const out = [];
   itin.legs.forEach((l, i) => {
     const next = itin.legs[i + 1];
     const last = i === itin.legs.length - 1;
-    const rail = (c, solid) => last ? '' : `<span class="rail${solid ? ' c' : ''}" style="${solid ? `background:${c}` : ''}" aria-hidden="true"></span>`;
+    const rail = (c, solid) => last ? '' : `<span class="tl${solid ? ' c' : ''}" style="${solid ? `background:${c}` : ''}" aria-hidden="true"></span>`;
     if (isTransit(l.mode)) {
       const kind = modeKind(l.mode), dl = delayText(l);
       const stops = (l.intermediateStops || []);
@@ -121,15 +140,16 @@ export function legRows(itin) {
         <div class="h"><b>${KIND_NAME[kind]} ${esc(lineName(l))}${l.headsign ? ` → ${esc(l.headsign)}` : ''}</b><span>${clock(l.startTime)}</span></div>
         <div class="s">${esc(l.from.name)} → ${esc(l.to.name)} · ${stops.length + 1} stop${stops.length ? 's' : ''}, ${dur(l.duration)}</div>
         <div class="st" style="color:${dl.c}">${esc(dl.t)}</div>
-        ${(l.alerts || []).slice(0, 2).map(a => `<div class="warn">${esc(a.headerText || a.descriptionText || '')}</div>`).join('')}
+        ${[...new Map((l.alerts || []).map(a => [`${a.headerText}|${a.descriptionText}`, a])).values()].slice(0, 3).map(alertHtml).join('')}
         ${stops.length ? `<details><summary>Show stops</summary><ul>${[l.from, ...stops, l.to].map(s => `<li><span>${esc(s.name)}</span><span>${clock(s.departure || s.arrival)}</span></li>`).join('')}</ul></details>` : ''}
         ${l.tripId ? `<button class="trackbtn ${kind} press" data-act="track" data-i="${i}">${ic('live', 16, 2.2)}${kind === 'metro' ? `Follow ${esc(lineName(l))} departure` : `Track ${KIND_NAME[kind].toLowerCase()} ${esc(lineName(l))}`}</button>` : ''}
       </div></div>`);
     } else {
-      const to = next ? (isTransit(next.mode) ? next.from.name : next.to.name) : l.to.name;
+      const to = next ? (isTransit(next.mode) ? next.from.name : nm(next.to, names.to)) : (names.to || nm(l.to, 'your destination'));
+      const from = i === 0 ? (names.from || nm(l.from, '')) : '';
       out.push(`<div class="leg">${rail('', false)}<div class="m">${ic('walk', 22)}</div><div class="bd">
         <div class="h"><b>Walk ${Math.max(1, Math.round(l.duration / 60))} min${l.distance ? ` · ${fmtDist(l.distance)}` : ''}</b><span>${clock(l.startTime)}</span></div>
-        <div class="s">to ${esc(to)}</div></div></div>`);
+        <div class="s">${from ? `from ${esc(from)} ` : ''}to ${esc(to)}</div></div></div>`);
     }
     const gap = next ? minsBetween(l.endTime, next.startTime) : 0;
     if (next && gap >= 2 && (isTransit(next.mode))) {
@@ -194,12 +214,11 @@ export function trackSheet(t, vm, err) {
   const upd = vm ? Math.max(0, Math.round((Date.now() - vm.updatedAt) / 1000)) : 0;
   const src = vm ? (vm.metro ? 'Timetable countdown — metro vehicles have no GPS position' : SOURCE_TEXT[vm.source]) : '';
   const delay = vm && !vm.metro && vm.source !== 'estimated' ? (vm.delayMin > 0 ? `${vm.delayMin} min late` : 'on time') : '';
-  return `<span class="grab"></span>
-  <div style="display:flex;align-items:center;gap:12px">${chip(t.line, kind, true)}
+  const sum = `<div style="display:flex;align-items:center;gap:12px">${chip(t.line, kind, true)}
     <div style="flex:1;min-width:0"><div style="font-size:18px;font-weight:800">${t.headsign ? `to ${esc(t.headsign)}` : esc(t.stopName)}</div>
     <div style="font-size:13px;color:var(--text2)">${vm && vm.vehicleId ? `vehicle ${esc(vm.vehicleId)} · ` : ''}${esc(delay || (vm ? KIND_NAME[kind] : ''))}${vm && vm.phase !== 'boarding' && vm.phase ? '' : ` · ${esc(t.stopName)}`}</div></div>
-    <div style="text-align:right"><div class="big">${bigHtml}</div><div style="font-size:12px;font-weight:600;color:var(--text2)">${esc(small)}</div></div></div>
-  ${prog}
+    <div style="text-align:right"><div class="big">${bigHtml}</div><div style="font-size:12px;font-weight:600;color:var(--text2)">${esc(small)}</div></div></div>`;
+  const body = `${prog}
   ${vm && !vm.metro && vm.stopsAway === 1 ? `<div class="note" role="status" style="font-weight:700;color:var(--text)">${vm.phase === 'riding' ? 'Your stop is next.' : 'The vehicle is one stop away.'}</div>` : ''}
   ${vm && vm.cancelled ? '<div class="err">This trip is cancelled.</div>' : ''}
   ${err ? `<div class="err" role="alert">${esc(err)}</div>` : ''}
@@ -207,6 +226,7 @@ export function trackSheet(t, vm, err) {
   ${vm && vm.attribution && vm.source === 'gps' ? `<div class="hint" style="margin-top:6px">Vehicle positions: <a href="${esc(vm.attribution.url)}" target="_blank" rel="noopener">${esc(vm.attribution.name)}</a>, downloaded ${new Date(vm.updatedAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</div>` : ''}
   <p class="hint" style="font-size:13px">${vm && vm.metro ? 'Your phone vibrates when the train is about to leave.' : 'Your phone vibrates when the vehicle is one stop away.'} Tracking runs only while the app is open; the screen is kept awake if your browser allows it.</p>
   <button class="btn gray press" data-act="back" style="margin-top:auto">Stop tracking</button>`;
+  return { sum, body };
 }
 
 // ----- settings -----
@@ -229,6 +249,7 @@ export function settings(c) {
   <div class="sec">Saved places</div><div class="card">${placeRows}</div>
   <div class="sec">Map</div><div class="card">
     ${sw('direction', 'Show my direction')}${sw('rotate', 'Rotate map as I turn')}${sw('live', 'Live vehicles on map')}</div>
+  ${c.compassDenied ? `<div class="note" role="status" style="margin-top:10px">The compass is blocked, so the direction beam is not shown. Tap <b>Try again</b>. If your iPhone does not ask, close the app completely and open it again, then tap the map once.</div><button class="linkbtn press" data-act="compass-retry">Try again</button>` : ''}
   <div class="sec">Your data</div><div class="card">
     <button class="row press link" data-act="export"><span class="tx"><span class="t1">Export saved places</span></span>${ic('dl', 18)}</button>
     <button class="row press link" data-act="import"><span class="tx"><span class="t1">Import from a file or link</span></span></button>
@@ -242,7 +263,7 @@ export function citySheet(cities, current, query, nearestName) {
   return `<div class="overlay" data-act="close-overlay"><div class="modal" role="dialog" aria-modal="true" aria-label="Choose city" data-stop>
     <span class="grab"></span>
     <div class="mh"><h2>City</h2><button class="done press" data-act="close-overlay">Done</button></div>
-    <label class="search">${ic('search', 18)}<span class="sr">Search cities</span><input id="cityq" placeholder="Search cities" autocomplete="off" value="${esc(query || '')}"></label>
+    <form class="ff" action="#" novalidate><label class="search">${ic('search', 18)}<span class="sr">Search cities</span><input id="cityq" placeholder="Search cities" autocomplete="off" value="${esc(query || '')}"></label></form>
     <button class="row press link card" data-act="city-gps" style="margin-top:12px;border-radius:14px;min-height:50px"><span class="ico" style="background:transparent">${ic('locate', 20)}</span><span class="tx"><span class="t1">Use my location</span></span><span class="t2" style="font-size:13px;color:var(--text2)">${esc(nearestName || 'finds the nearest city')}</span></button>
     <div class="card" style="margin-top:12px" id="citylist">${cityRows(cities, current)}</div>
     <p class="hint">The city only sets where search and the map start — routes also cross city borders. Coverage depends on the open timetables available through Transitous.</p></div></div>`;

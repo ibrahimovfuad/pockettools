@@ -6,12 +6,12 @@ Plan a journey, see departures at a stop and follow one bus, tram or train on th
 
 ## Features
 
-- **Search** from your current location (or any place) to any place, now, at a chosen departure time or to arrive by a chosen time; filter by tram, bus, metro or train; sort by fewest changes or least walking; "Later connections".
+- **Search** from your current location (or any place) to any place, now, at a chosen departure time or to arrive by a chosen time; filter by tram, bus, metro or train; Connections are listed by departure time with the best one highlighted; sort by fewest changes or least walking; "Later connections". Each search sends four parallel queries to Transitous (all modes with a 30-minute window and at least 8 options, only stops within a 5-minute walk, no changes, trains only) and merges and de-duplicates them, because MOTIS returns only Pareto-optimal journeys.
 - **City picker** with the big Polish networks (Warszawa, Kraków, Wrocław, Poznań, Trójmiasto, Łódź, Katowice/GZM, Lublin, Szczecin, Bydgoszcz and more), a search box and "Use my location". The city only biases place search and the starting map position — routing itself is not limited to a city.
 - **Results and route**: times, changes, walking, live delays where the data has them, every stop of a leg, and a map with the route.
 - **Stop departures** (also nearby stops on the start screen, after you allow location): next departures with a "live" or "timetable" label, platform filter, refresh every 15 s, save a stop with the star.
 - **Live tracking** of one chosen vehicle, only while the app is open (refresh about every 12 s): minutes and stops away, a progress strip, the vehicle on the map, a vibration (where the browser supports it) and an on-screen message when it is one stop away. The screen is kept awake while tracking if the browser allows it. Metro has no position, so it shows a timetable countdown.
-- **Your position** on the map: a blue dot with an accuracy circle (only while a map is visible) and a direction beam from the compass. iOS asks for compass permission after a tap on the "Direction" button; Android starts it by itself. Optional "Rotate map as I turn".
+- **Your position** on the map: a blue dot with an accuracy circle (only while a map is visible) and a direction beam from the compass. Controlled only by Settings → "Show my direction" (no button on the map). On iPhone the compass permission is requested on the first tap on the map or the locate button, and a refusal is remembered on the device (Settings shows "Try again"); Android starts it by itself. Optional "Rotate map as I turn".
 - **Saved places** (Home, Work, favourite stops) and the last 10 searches; **export / import** of saved places as a file or as a share link (`#import=…`).
 - Light and dark mode, installable PWA, works at 375–430 px, reduced motion respected.
 
