@@ -172,7 +172,7 @@ const store = DEMO ? demoBackend() : firebaseBackend();
 const S = {
   user: null, books: [], quotes: [], profile: {},
   view: 'lib', tab: 'reading', layout: 'list', sort: 'manual',
-  genre: '', fl: { author: '', pubYear: '', readYear: '', rating: 0, format: '' }, dropOnly: false,
+  genre: '', fl: { author: '', pubYear: '', readYear: '', rating: 0, format: '' }, showSkipped: false,
   q: '', qq: '', results: [], searching: false, statYear: new Date().getFullYear(),
   pub: null   // viewing someone else's shelf via a link
 };
@@ -180,18 +180,18 @@ try { Object.assign(S, JSON.parse(localStorage.getItem('polka-ui') || '{}')); } 
 const saveUI = () => { try { localStorage.setItem('polka-ui', JSON.stringify({ layout: S.layout, sort: S.sort })); } catch (e) {} };
 const ro = () => !!S.pub;   // read-only
 const B = id => S.books.find(b => b.id === id);
-const STATUS = { queue: 'Want to read', reading: 'Reading', done: 'Read', dropped: 'Dropped' };
+const STATUS = { queue: 'Want to read', reading: 'Reading', done: 'Read', dropped: 'Skipped' };   // stored value stays 'dropped' (existing data)
 const FORMATS = ['Paper', 'E-book', 'Audio'];
 // older versions stored Russian format/genre names — show them in English
 const LEGACY = { 'Бумага': 'Paper', 'Электронная': 'E-book', 'Аудио': 'Audio', 'Художественная': 'Fiction', 'Детская': 'Children', 'Биография': 'Biography', 'История': 'History', 'Наука': 'Science', 'Психология': 'Psychology', 'Бизнес': 'Business', 'Саморазвитие': 'Self-help', 'Философия': 'Philosophy', 'Технологии': 'Technology', 'Поэзия': 'Poetry', 'Путешествия': 'Travel', 'Религия': 'Religion', 'Здоровье': 'Health', 'Кулинария': 'Cooking', 'Искусство': 'Art', 'Образование': 'Education', 'Политика': 'Politics', 'Общество': 'Society', 'Литературоведение': 'Literary criticism', 'Драматургия': 'Drama', 'Тру-крайм': 'True crime', 'Комиксы': 'Comics' };
 const fixLegacy = b => ({ ...b, format: LEGACY[b.format] || b.format, genre: LEGACY[b.genre] || b.genre });
 
-function inTab(b, tab) { return tab === 'done' ? (b.status === 'done' || b.status === 'dropped') : b.status === tab; }
+// skipped books stay out of Read unless the Skipped chip is on
+function inTab(b, tab) { return tab === 'done' ? (b.status === 'done' || (S.showSkipped && b.status === 'dropped')) : b.status === tab; }
 function shelf() {
   const f = S.fl;
   let L = S.books.filter(b => inTab(b, S.tab))
     .filter(b => !S.genre || b.genre === S.genre)
-    .filter(b => !S.dropOnly || b.status === 'dropped')
     .filter(b => !f.author || b.author === f.author)
     .filter(b => !f.pubYear || String(b.year) === f.pubYear)
     .filter(b => !f.readYear || (b.end || '').startsWith(f.readYear))
@@ -306,9 +306,9 @@ function libHTML() {
     <h1 class="serif h1" style="margin-top:12px">${title}</h1>`;
   html += `<div class="sub">${sub}</div>`;
   html += `<div class="chips"><button class="chip ${nFilters() ? 'on' : ''}" data-act="filters">${I.filter}Filters${nFilters() ? ' · ' + nFilters() : ''}</button>
-    <button class="chip ${!S.genre && !S.dropOnly ? 'on' : ''}" data-genre="">All</button>
+    <button class="chip ${!S.genre ? 'on' : ''}" data-genre="">All</button>
     ${genres.map(g => `<button class="chip ${S.genre === g ? 'on' : ''}" data-genre="${esc(g)}">${esc(g)}</button>`).join('')}
-    ${dropped ? `<button class="chip ${S.dropOnly ? 'on' : ''}" data-act="droponly">Dropped</button>` : ''}</div>`;
+    ${dropped ? `<button class="chip ${S.showSkipped ? 'on' : ''}" data-act="skipped">Skipped</button>` : ''}</div>`;
   if (!L.length) {
     const any = S.books.some(b => inTab(b, S.tab));
     html += any ? '<div class="empty"><b>Nothing found</b>Try clearing the filters.</div>'
@@ -333,7 +333,7 @@ function pubWho() {
 }
 function metaBadge(b) {
   if (b.status === 'done' && b.rating && (!ro() || S.pub.showR)) return `<span class="stars">${'★'.repeat(b.rating)}</span>`;
-  if (b.status === 'dropped') return '<span class="dropped">Dropped</span>';
+  if (b.status === 'dropped') return '<span class="dropped">Skipped</span>';
   return '';
 }
 function metaLine(b) {
@@ -468,7 +468,7 @@ function statsHTML() {
       <div class="tile"><span>Read</span><b>${D.R.length}</b></div>
       <div class="tile"><span>Pages</span><b>${D.pages ? D.pages.toLocaleString('en-US') : '—'}</b></div>
       <div class="tile"><span>Average rating</span><b>${D.avg ? D.avg.toFixed(1) + ' ★' : '—'}</b></div>
-      <div class="tile"><span>Dropped</span><b>${D.dropped}</b></div>
+      <div class="tile"><span>Skipped</span><b>${D.dropped}</b></div>
     </div>
     ${D.R.length ? `<button class="pill acc" data-act="stories" style="margin-top:14px;display:flex;align-items:center;justify-content:center;gap:8px"><span style="width:18px;height:18px;display:inline-block">${I.play}</span>${S.statYear} in review</button>` : ''}
     <div class="lbl">By month</div>
@@ -551,7 +551,7 @@ function setStatus(b, st) {
   if (st === 'done') { if (!nb.end) nb.end = t; if (!nb.start) nb.start = ''; }
   if (st === 'queue') { nb.order = Math.max(0, ...S.books.filter(x => x.status === 'queue').map(x => x.order ?? 0)) + 10; }
   saveBook(nb);
-  toast({ reading: 'Started reading', done: 'Finished!', queue: 'Added to queue', dropped: 'Marked as dropped' }[st]);
+  toast({ reading: 'Started reading', done: 'Finished!', queue: 'Added to queue', dropped: 'Marked as skipped' }[st]);
 }
 
 document.addEventListener('click', e => {
@@ -566,18 +566,18 @@ document.addEventListener('click', e => {
   }
   if (d.tab) {
     if (S.view === 'lib' && S.tab === d.tab) { scrollTo({ top: 0, behavior: 'smooth' }); return; }
-    vt(navKind(S.view, S.tab, 'lib', d.tab), () => { S.tab = d.tab; S.view = 'lib'; S.genre = ''; S.dropOnly = false; scrollTo(0, 0); render(); });
+    vt(navKind(S.view, S.tab, 'lib', d.tab), () => { S.tab = d.tab; S.view = 'lib'; S.genre = ''; scrollTo(0, 0); render(); });
     return;
   }
   if (d.open) { openBook(d.open, t.querySelector('.cover')); return; }
-  if (d.genre != null && t.dataset.genre !== undefined && !d.act) { if (S.genre === d.genre && !S.dropOnly) return; vt('reflow', () => { S.genre = d.genre; S.dropOnly = false; render(); }); return; }
+  if (d.genre != null && t.dataset.genre !== undefined && !d.act) { if (S.genre === d.genre) return; vt('reflow', () => { S.genre = d.genre; render(); }); return; }
   if (d.res) { const r = S.results[+d.res]; openEdit(null, { ...r, status: 'queue' }); return; }
   if (d.year) { S.statYear = +d.year; render(); return; }
   const a = d.act;
   if (a === 'menu') openMenu();
   if (a === 'more') openMore();
   if (a === 'filters') openFilters();
-  if (a === 'droponly') vt('reflow', () => { S.dropOnly = !S.dropOnly; S.genre = ''; render(); });
+  if (a === 'skipped') vt('reflow', () => { S.showSkipped = !S.showSkipped; render(); });
   if (a === 'scan') openScan();
   if (a === 'manual') openEdit(null, { title: S.q.trim(), status: 'queue' });
   if (a === 'stories') openStories(S.statYear);
@@ -796,10 +796,10 @@ function openBookNow(id) {
       <div class="mt">${esc([b.genre, b.year, b.pages ? b.pages + ' pages' : '', b.format].filter(Boolean).join(' · '))}</div></div>
       <div class="sh-body">
       ${ro() ? `<div style="text-align:center;margin-top:18px;font-weight:600;color:var(--accent)">${STATUS[b.status]}</div>`
-        : `<div class="seg" style="margin-top:18px">${[['queue', 'To read'], ['reading', 'Reading'], ['done', 'Read'], ['dropped', 'Dropped']].map(([k, t]) => `<button data-st="${k}" class="${b.status === k ? 'on' : ''}">${t}</button>`).join('')}</div>`}
+        : `<div class="seg" style="margin-top:18px">${[['queue', 'To read'], ['reading', 'Reading'], ['done', 'Read'], ['dropped', 'Skipped']].map(([k, t]) => `<button data-st="${k}" class="${b.status === k ? 'on' : ''}">${t}</button>`).join('')}</div>`}
       ${b.status !== 'queue' ? `<div class="lbl">Reading</div><div class="grp">
         <div class="gi"><span class="grow">Started</span><span class="val">${fmtDate(b.start)}</span></div>
-        ${b.status === 'done' || b.status === 'dropped' ? `<div class="gi"><span class="grow">${b.status === 'done' ? 'Finished' : 'Dropped'}</span><span class="val">${fmtDate(b.end)}${days != null ? ' · ' + days + ' ' + plural(days, 'day', 'days') : ''}</span></div>` : ''}
+        ${b.status === 'done' || b.status === 'dropped' ? `<div class="gi"><span class="grow">${b.status === 'done' ? 'Finished' : 'Skipped'}</span><span class="val">${fmtDate(b.end)}${days != null ? ' · ' + days + ' ' + plural(days, 'day', 'days') : ''}</span></div>` : ''}
         ${b.status === 'done' && showR ? `<div class="gi"><span class="grow">Rating</span><span>${[1, 2, 3, 4, 5].map(n => `<button class="star ${n <= (b.rating || 0) ? 'on' : ''}" data-rate="${n}" aria-label="Rating ${n}" ${ro() ? 'disabled' : ''}>★</button>`).join('')}</span></div>` : ''}
         ${b.status === 'dropped' ? `<div class="gi"><span class="grow">Why</span><span class="val" style="max-width:62%">${esc(b.why || '—')}</span></div>` : ''}
         ${ro() ? '' : `<button class="gi btn" data-edit>Edit dates</button>`}
@@ -814,7 +814,7 @@ function openBookNow(id) {
     if (!first) el.scrollTop = keep;
     el.querySelector('[data-x]').onclick = closeLayer;
     el.querySelectorAll('[data-edit]').forEach(x => x.onclick = () => openEdit(b));
-    el.querySelectorAll('[data-st]').forEach(x => x.onclick = () => { if (x.dataset.st === b.status) return; if (x.dataset.st === 'dropped') { openEdit({ ...b, status: 'dropped', end: b.end || todayIso() }, null, 'Why did you drop it?'); return; } setStatus(b, x.dataset.st); });
+    el.querySelectorAll('[data-st]').forEach(x => x.onclick = () => { if (x.dataset.st === b.status) return; if (x.dataset.st === 'dropped') { openEdit({ ...b, status: 'dropped', end: b.end || todayIso() }, null, 'Why did you skip it?'); return; } setStatus(b, x.dataset.st); });
     el.querySelectorAll('[data-rate]').forEach(x => x.onclick = () => saveBook({ ...b, rating: +x.dataset.rate === b.rating ? 0 : +x.dataset.rate }));
     const tp = el.querySelector('[data-top]'); if (tp) tp.onclick = () => { saveBook({ ...b, order: Math.min(0, ...S.books.filter(x => x.status === 'queue').map(x => x.order ?? 0)) - 10 }); toast('It is now first in your queue'); };
     const mr = el.querySelector('[data-more]'); if (mr) mr.onclick = () => { descOpen = !descOpen; refreshSheet(); };
@@ -876,12 +876,12 @@ function openEdit(book, prefill, focusWhy) {
           <label class="gi"><span style="width:96px">ISBN</span><input type="text" inputmode="numeric" id="eI" value="${esc(f.isbn)}" style="text-align:left;color:var(--text)"></label>
         </div>
         <div class="lbl">Format</div><div class="seg">${FORMATS.map(x => `<button type="button" data-fmt="${x}" class="${f.format === x ? 'on' : ''}">${x}</button>`).join('')}</div>
-        <div class="lbl">Status</div><div class="seg">${[['queue', 'To read'], ['reading', 'Reading'], ['done', 'Read'], ['dropped', 'Dropped']].map(([k, t]) => `<button type="button" data-est="${k}" class="${f.status === k ? 'on' : ''}">${t}</button>`).join('')}</div>
-        ${f.status !== 'queue' ? `<div class="lbl">Dates</div><div class="grp">${dateField('start', 'Started', f.start)}${f.status === 'done' || f.status === 'dropped' ? dateField('end', f.status === 'done' ? 'Finished' : 'Dropped', f.end) : ''}</div>
+        <div class="lbl">Status</div><div class="seg">${[['queue', 'To read'], ['reading', 'Reading'], ['done', 'Read'], ['dropped', 'Skipped']].map(([k, t]) => `<button type="button" data-est="${k}" class="${f.status === k ? 'on' : ''}">${t}</button>`).join('')}</div>
+        ${f.status !== 'queue' ? `<div class="lbl">Dates</div><div class="grp">${dateField('start', 'Started', f.start)}${f.status === 'done' || f.status === 'dropped' ? dateField('end', f.status === 'done' ? 'Finished' : 'Skipped', f.end) : ''}</div>
           <div class="foot">Any past date works. Don’t remember the day? Pick “Month” or “Year only”.</div>` : ''}
         ${f.status === 'done' ? `<div class="lbl">Rating</div><div class="grp"><div class="gi" style="justify-content:center">${[1, 2, 3, 4, 5].map(n => `<button type="button" class="star ${n <= (f.rating || 0) ? 'on' : ''}" data-erate="${n}" aria-label="Rating ${n}" style="font-size:32px">★</button>`).join('')}</div></div>
           <div class="lbl">Review</div><textarea class="field" id="eR" placeholder="A few words about the book">${esc(f.review)}</textarea>` : ''}
-        ${f.status === 'dropped' ? `<div class="lbl">Why you dropped it</div><textarea class="field" id="eW" placeholder="Briefly" style="min-height:60px">${esc(f.why)}</textarea>` : ''}
+        ${f.status === 'dropped' ? `<div class="lbl">Why you skipped it</div><textarea class="field" id="eW" placeholder="Briefly" style="min-height:60px">${esc(f.why)}</textarea>` : ''}
         <div class="lbl">About the book</div><textarea class="field" id="eD" placeholder="Description">${esc(f.desc)}</textarea>
       </div>`;
     el.querySelector('[data-x]').onclick = () => { if (!isNew && openSheetId === 'edit') openBook(f.id); else closeLayer(); };
@@ -900,7 +900,7 @@ function openEdit(book, prefill, focusWhy) {
       if (f.start && f.end && f.end < f.start.slice(0, f.end.length)) { err = 'The end date is before the start date'; sheetRender(el, true); el.scrollTop = 0; return; }
       if (f.status === 'queue') { f.start = f.start || ''; }
       saveBook(f);
-      if (isNew) { S.tab = f.status === 'dropped' ? 'done' : f.status; S.view = 'lib'; S.genre = ''; toast('Book added'); closeLayer(); render(); }
+      if (isNew) { S.tab = f.status === 'dropped' ? 'done' : f.status; if (f.status === 'dropped') S.showSkipped = true; S.view = 'lib'; S.genre = ''; toast('Book added'); closeLayer(); render(); }
       else { toast('Saved'); openBook(f.id); }
     };
     if (first && focusWhy) setTimeout(() => el.querySelector('#eW') && el.querySelector('#eW').focus(), 400);
@@ -1005,7 +1005,7 @@ const COLS = {
 };
 function statusOf(v, hasEnd) {
   v = norm(v);
-  if (/брос|dropp|abandon|did not finish|dnf/.test(v)) return 'dropped';
+  if (/брос|dropp|skip|abandon|did not finish|dnf/.test(v)) return 'dropped';
   if (/^чита|reading|currently|сейчас/.test(v)) return 'reading';
   if (/хоч|очеред|to read|want|queue|plan/.test(v)) return 'queue';
   if (/прочит|read|done|finish|готов/.test(v)) return 'done';
@@ -1080,7 +1080,7 @@ function download(name, text, type) {
 const csvCell = v => { v = String(v == null ? '' : v); return /[",;\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; };
 const CSV_HEAD = ['Title', 'Author', 'Status', 'Started', 'Finished', 'Rating', 'Genre', 'Format', 'Pages', 'Year', 'ISBN', 'Review', 'Why'];
 function toCSV(list) {
-  const st = { queue: 'want to read', reading: 'reading', done: 'read', dropped: 'dropped' };
+  const st = { queue: 'want to read', reading: 'reading', done: 'read', dropped: 'skipped' };
   return '﻿' + [CSV_HEAD, ...list.map(b => [b.title, b.author, st[b.status], b.start, b.end, b.rating || '', b.genre, b.format, b.pages, b.year, b.isbn, b.review, b.why])].map(r => r.map(csvCell).join(',')).join('\n');
 }
 function openExport() {
