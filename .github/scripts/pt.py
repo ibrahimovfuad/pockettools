@@ -1,7 +1,7 @@
 """Repository helper for CI and releases.
 
   pt.py changed BASE [HEAD]   print the deployable folders whose deployed files changed between two commits
-  pt.py check BASE [HEAD]     run the repository checks (cache bump, English UI, CSP, required links, shared files)
+  pt.py check BASE [HEAD]     run the repository checks (cache bump, English UI, CSP, required links, homepage cards, shared files)
   pt.py sites DIR...          find (or create) the Netlify site of each folder;
                               prints "<dir> <site_id> <domain> <firebase> <publish dir> <functions dir or ->"
 
@@ -133,7 +133,19 @@ def check(base, head='HEAD'):
                 if needle not in blob:
                     errors.append(f'{d}: the {what} is missing from the main screen.')
 
-    # 5. shared files must match their copies
+    # 5. every app is listed on the project homepage (site/index.html) with a link to its Netlify site
+    home = ROOT / 'site/index.html'
+    if home.exists():
+        html = home.read_text(encoding='utf-8')
+        for d in folders():
+            if not d.startswith('apps/'):
+                continue
+            name = CFG['sites'].get(d) or Path(d).name + '2'
+            if f'href="https://{name}.netlify.app"' not in html:
+                errors.append(f'site/index.html: no card for {d} — add <a class="app" href="https://{name}.netlify.app"> '
+                              f'with an icon in site/icons/ (npm run new-app does this for new apps).')
+
+    # 6. shared files must match their copies
     manifest = ROOT / 'shared/manifest.json'
     if manifest.exists():
         for name, targets in json.loads(manifest.read_text()).items():

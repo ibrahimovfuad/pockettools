@@ -33,6 +33,7 @@ A monorepo of small, independent PWAs. Each app is its own Netlify site, deploye
 8. **Data compatibility.** Users already have data in Firestore. Don't rename stored fields or values without a migration. Bookshelf maps legacy Russian format/genre values via `LEGACY` in `src/main.js`; Russian aliases in import parsers are intentional.
 9. **Never push to `main`.** Work on a branch (`fix/…`, `feat/…`, `ci/…`), open a pull request and merge it only when the **CI ok** check is green. `main` is protected by a ruleset.
 10. **Merging never deploys; releases do.** Each production deploy costs Netlify credits, so batch merged work into one release (see below).
+11. **Every app is on the homepage.** A new app gets a card in `site/index.html` (link to its Netlify site, icon in `site/icons/`, one-line description) and a row in the README table. `npm run new-app` adds both; CI fails if an app has no card.
 
 ## User data (GDPR)
 
