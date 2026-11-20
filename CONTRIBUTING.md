@@ -49,6 +49,8 @@ Merging does not deploy anything — releases do. The maintainer releases with A
 
 See [AGENTS.md](AGENTS.md) for the full list of project rules (build steps, service-worker versions, CSP, required links). It is written for AI coding agents but applies to everyone.
 
+Building mobile UI? Read [iOS UI pitfalls](AGENTS.md#ios-ui-pitfalls) first (no floating pills over content, keyboard accessory bar, page rubber-band, bottom sheets, 44 px touch targets).
+
 
 - Keep apps small, dependency-light and readable.
 - Never commit secrets (API keys, private keys, tokens). Use environment variables and document them in the app's README.

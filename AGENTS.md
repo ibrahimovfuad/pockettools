@@ -36,6 +36,16 @@ A monorepo of small, independent PWAs. Each app is its own Netlify site, deploye
 10. **Merging never deploys; releases do.** Each production deploy costs Netlify credits, so batch merged work into one release (see below).
 11. **Every app is on the homepage.** A new app gets a card in `site/index.html` (link to its Netlify site, icon in `site/icons/`, one-line description) and a row in the README table. `npm run new-app` adds both; CI fails if an app has no card.
 
+## iOS UI pitfalls
+
+Rules for every app (the apps are used as home-screen PWAs on iPhones):
+
+- **No floating pills, banners or toasts over maps or lists.** They cover content and "keep resetting". Put such toggles in Settings or in the normal page layout. Over a map only the round Back and Locate buttons may float.
+- **Mind the keyboard.** iOS does not shrink the layout viewport when the keyboard opens, and iOS 26 adds a floating accessory bar (arrows, Done) above it. Use `window.visualViewport` to measure the covered height (add about 56 px for the bar), give the bottom of the page and of dialogs that much padding (see `--kb` in Routes) and scroll the active field into view. Put each text field in its own `<form>` (with a `submit` handler that calls `preventDefault`) so the bar has no previous/next arrows to other fields.
+- **No page rubber-band on full-screen layouts.** `overscroll-behavior: none` on `html`/`body` and `contain` on scroll containers, `100dvh` (not `100vh`) for full-height screens, and `position: fixed` on the body while a full-screen map screen is shown. The page must never scroll underneath a map.
+- **Bottom sheets must collapse to a peek bar.** Snap points expanded / half / collapsed, drag handle with swipe velocity, a real toggle button with `aria-expanded`, content scrolls inside the sheet only when expanded, and `prefers-reduced-motion` is respected (see `apps/routes/src/sheet.js`).
+- **Touch targets are at least 44 x 44 px.**
+
 ## User data (GDPR)
 
 Every app that stores user data in Firebase or on a server must be listed in `shared/user-data.json` (its Firestore collections under `users/{uid}/`, any other Firestore documents it owns, and any server-side store such as Netlify Blobs) and must offer an **Account & data** section with *Export my data*, *Delete this app's data* and *Delete account*. The code is shared: `shared/account.js` is copied into each bundled app's `src/` (via `shared/manifest.json`); import `initAccount` from `./account.js`, put `<div data-pta-host></div>` in the settings screen and call `initAccount({ app, getUser, getFirebase, demoKeys, stopListening })` (see Mood, Spend or Digest). A new Firebase app made with `npm run new-app -- … --firebase` is registered and wired up for this automatically; fill in its collections. CI (`pt.py check`) fails if a collection in `firebase/firestore.rules` is missing from the registry, so nothing can be added that "Delete account" would miss. A server-side store must also answer authenticated `export` and `delete` actions like `apps/mood/netlify/functions/reminder.mjs`. If you add a new kind of personal data, update `site/privacy.html` and the app's README ("Data stored", "Delete your data"). `npm run test:account` tests the export and delete logic.
