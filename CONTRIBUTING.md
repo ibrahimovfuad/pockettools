@@ -43,7 +43,7 @@ npm run test:smoke               # needs: npx playwright install webkit
 npm run test:rules               # needs Java 11+
 ```
 
-Merging does not deploy anything — releases do (see [AGENTS.md](AGENTS.md#releases)).
+Merging does not deploy anything — releases do. The maintainer creates a release with `npm run release` (it tags the latest `main` and pushes the tag; the tag deploys every folder that changed since the previous release), or from GitHub → Releases → Draft a new release. The Actions "Run workflow" button is only for emergency redeploys. See [AGENTS.md](AGENTS.md#releases).
 
 ## Guidelines
 

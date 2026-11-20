@@ -8,6 +8,7 @@
     "test:rules": "firebase emulators:exec --only firestore --project demo-pockettools \"node --test firebase/test/rules.test.mjs\"",
     "test:smoke": "playwright test",
     "sync-shared": "node scripts/sync-shared.mjs",
+    "release": "node scripts/release.mjs",
     "new-app": "node scripts/new-app.mjs"
   },
   "devDependencies": {

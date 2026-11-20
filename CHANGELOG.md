@@ -4,6 +4,7 @@ All notable changes to Pocket Tools are listed here, newest first.
 
 ## 2026-11-20
 
+- Repository: releases are now tagged manually and deployed automatically. `npm run release` tags the latest `main` (`vYYYY.MM.DD`) and pushes the tag, or create a release on GitHub (also from a phone); a new `v*` tag deploys the folders that changed. The Release workflow no longer creates tags, and its “Run workflow” button is only for emergency redeploys.
 - Repository: `main` is protected — changes go through pull requests with CI (repository checks, bundle check, iPhone WebKit smoke tests, Firestore rules tests on the emulator). Deploys happen only through the Release workflow / `v*` tags, and only for folders whose shipped files changed. Added `shared/`, `npm run new-app`, Dependabot and a daily site monitor.
 - Bookshelf: “Dropped” is now “Skipped”, and skipped books are hidden from Read; the Skipped chip shows them again.
 - Lightmeter removed: browsers on iPhone do not report the camera’s exposure, so readings could not be made reliable.
