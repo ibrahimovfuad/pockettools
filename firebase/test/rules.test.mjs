@@ -28,6 +28,10 @@ const VALID = [
   ['spend_categories/c1', { name: 'Food', icon: 'cart', color: '#ff9500', order: 1 }],
   ['spend_expenses/e1', { amount: 23.49, catId: 'c1', date: '2026-01-31', ts: 1, merchant: 'Żabka', source: 'applepay' }],
   ['spend_meta/settings', { budget: 2000, rules: { 'Żabka': 'c1' } }],
+  ['routes_places/home', { kind: 'home', name: 'Home', sub: 'Dobra 9', lat: 52.24, lon: 21.03, ts: 1 }],
+  ['routes_places/s-1abc', { kind: 'stop', name: 'Dobra', lat: 52.24, lon: 21.03, stopId: 'wa_dobra' }],
+  ['routes_meta/settings', { direction: true, rotate: false, live: true, city: 'warszawa', ts: 1 }],
+  ['routes_meta/history', { items: [{ name: 'Metro Wilanowska', lat: 52.2, lon: 21, ts: 1 }], ts: 1 }],
   ['digest_weeks/2026-W47', { quotes: 12, removed: 1, ts: 1763913600000 }],
   ['lm_cameras/k1', { name: 'Canon FTb', fastest: 0.001, slowest: 1 }],
   ['lm_lenses/l1', { name: 'Canon FL 50', focal: 50, widest: 1.8, smallest: 16 }],
@@ -102,6 +106,27 @@ describe('validation', () => {
     await assertFails(put('digest_weeks/2026-W47', { ...w, removed: -2 }));
     await assertFails(put('digest_weeks/2026-W47', { ...w, removed: 'many' }));
     await assertFails(put('digest_weeks/2026-W47', { ...w, text: 'a quote' }));
+  });
+  test('Routes: saved places have a kind, a name and coordinates in range; settings and history are fixed documents', async () => {
+    const p = { kind: 'stop', name: 'Dobra', lat: 52.24, lon: 21.03, stopId: 'wa_dobra', ts: 1 };
+    await assertSucceeds(put('routes_places/s-1abc', p));
+    await assertFails(put('routes_places/s-1abc', { ...p, kind: 'trip' }));
+    await assertFails(put('routes_places/s-1abc', { ...p, name: '' }));
+    await assertFails(put('routes_places/s-1abc', { ...p, name: 'x'.repeat(121) }));
+    await assertFails(put('routes_places/s-1abc', { ...p, lat: 91 }));
+    await assertFails(put('routes_places/s-1abc', { ...p, lon: '21' }));
+    await assertFails(put('routes_places/s-1abc', { kind: 'stop', name: 'Dobra', lat: 52.24 }));
+    await assertFails(put('routes_places/s-1abc', { ...p, visited: 12 }));          // no trip or location history fields
+    await assertFails(put('routes_places/bad id!', p));
+    await assertSucceeds(put('routes_meta/settings', { direction: true, rotate: false, live: true, city: 'warszawa', ts: 1 }));
+    await assertFails(put('routes_meta/settings', { direction: 'yes' }));
+    await assertFails(put('routes_meta/settings', { direction: true, theme: 'dark' }));
+    await assertFails(put('routes_meta/other', { direction: true }));
+    await assertSucceeds(put('routes_meta/history', { items: [], ts: 1 }));
+    await assertFails(put('routes_meta/history', { items: Array.from({ length: 11 }, () => ({})) }));
+    await assertFails(put('routes_meta/history', { items: 'x' }));
+    await assertFails(put('routes_meta/history', { ts: 1 }));
+    await assertFails(put('routes_meta/history', { items: [], trips: [] }));
   });
   test('updates are validated too', async () => {
     await assertSucceeds(put('days/2026-01-31', { score: 5 }));

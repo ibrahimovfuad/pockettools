@@ -1,0 +1,16 @@
+{
+  "name": "routes",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "esbuild src/main.js --bundle --minify --format=iife --target=es2020,safari15 --outfile=public/app.js && node scripts/copy-assets.mjs",
+    "dev": "node scripts/dev.mjs"
+  },
+  "devDependencies": {
+    "esbuild": "^0.24.0",
+    "firebase": "^11.0.2"
+  },
+  "dependencies": {
+    "maplibre-gl": "^6.19.0"
+  }
+}

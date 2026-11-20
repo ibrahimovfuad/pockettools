@@ -1,0 +1,6 @@
+# Google hosts are needed for Firebase sign-in.
+# Disallow inline scripts on app pages — this also keeps the Netlify badge from being injected.
+/
+  Content-Security-Policy: script-src 'self' https://apis.google.com https://www.gstatic.com https://www.google.com
+/index.html
+  Content-Security-Policy: script-src 'self' https://apis.google.com https://www.gstatic.com https://www.google.com

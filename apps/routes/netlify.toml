@@ -1,0 +1,12 @@
+# Netlify: Base directory = apps/routes
+# public/app.js is committed pre-built (npm run build). The functions are plain ES modules without dependencies.
+[build]
+  publish = "public"
+  functions = "netlify/functions"
+  # Netlify never builds from Git: releases are deployed by .github/workflows/release.yml
+  # (Netlify CLI) when a v* tag is created. This also stops Deploy Previews, which cost credits.
+  # In a fork that deploys with Netlify's Git integration, delete this line.
+  ignore = "exit 0"
+
+[functions]
+  node_bundler = "esbuild"
