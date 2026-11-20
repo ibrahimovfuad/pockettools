@@ -28,6 +28,7 @@ const VALID = [
   ['spend_categories/c1', { name: 'Food', icon: 'cart', color: '#ff9500', order: 1 }],
   ['spend_expenses/e1', { amount: 23.49, catId: 'c1', date: '2026-01-31', ts: 1, merchant: 'Żabka', source: 'applepay' }],
   ['spend_meta/settings', { budget: 2000, rules: { 'Żabka': 'c1' } }],
+  ['digest_weeks/2026-W47', { quotes: 12, removed: 1, ts: 1763913600000 }],
   ['lm_cameras/k1', { name: 'Canon FTb', fastest: 0.001, slowest: 1 }],
   ['lm_lenses/l1', { name: 'Canon FL 50', focal: 50, widest: 1.8, smallest: 16 }],
   ['lm_films/f1', { name: 'Portra 400', iso: 400, exposures: 36 }],
@@ -86,6 +87,21 @@ describe('validation', () => {
     await assertFails(put('spend_expenses/e1', { ...e, card: '4111' }));
     await assertFails(put('spend_meta/other', { budget: 1 }));
     await assertFails(put('spend_categories/c1', { name: 'x'.repeat(41) }));
+  });
+  test('Weekly Digest: ISO week id, whole non-negative counts, known fields only', async () => {
+    const w = { quotes: 12, ts: 1763913600000 };
+    await assertSucceeds(put('digest_weeks/2026-W47', w));
+    await assertSucceeds(put('digest_weeks/2026-W47', { ...w, removed: 0 }));
+    await assertFails(put('digest_weeks/2026-47', w));
+    await assertFails(put('digest_weeks/latest', w));
+    await assertFails(put('digest_weeks/2026-W47', { quotes: 12 }));
+    await assertFails(put('digest_weeks/2026-W47', { ts: 1 }));
+    await assertFails(put('digest_weeks/2026-W47', { ...w, quotes: -1 }));
+    await assertFails(put('digest_weeks/2026-W47', { ...w, quotes: 1.5 }));
+    await assertFails(put('digest_weeks/2026-W47', { ...w, quotes: '12' }));
+    await assertFails(put('digest_weeks/2026-W47', { ...w, removed: -2 }));
+    await assertFails(put('digest_weeks/2026-W47', { ...w, removed: 'many' }));
+    await assertFails(put('digest_weeks/2026-W47', { ...w, text: 'a quote' }));
   });
   test('updates are validated too', async () => {
     await assertSucceeds(put('days/2026-01-31', { score: 5 }));

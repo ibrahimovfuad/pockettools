@@ -9,7 +9,7 @@ updates:
     groups:
       actions: { patterns: ['*'] }
   - package-ecosystem: npm
-    directories: ['/', '/apps/bookshelf', '/apps/habits', '/apps/mood', '/apps/spend']
+    directories: ['/', '/apps/bookshelf', '/apps/digest', '/apps/habits', '/apps/mood', '/apps/spend']
     schedule: { interval: monthly }
     open-pull-requests-limit: 5
     groups:

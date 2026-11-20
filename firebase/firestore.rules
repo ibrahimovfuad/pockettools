@@ -78,6 +78,21 @@ service cloud.firestore {
         && (!('rules' in request.resource.data) || (request.resource.data.rules is map && request.resource.data.rules.size() <= 500));
     }
 
+    // Weekly Digest: one small snapshot per ISO week (id like 2026-W47). The app counts the quotes
+    // at each visit so it can tell how many were removed (deleted documents leave no trace).
+    match /users/{uid}/digest_weeks/{id} {
+      allow read, delete: if owner(uid);
+      allow create, update: if owner(uid)
+        && id.matches('^[0-9]{4}-W[0-9]{2}$')
+        && request.resource.data.keys().hasOnly(['quotes', 'removed', 'ts'])
+        && request.resource.data.keys().hasAll(['quotes', 'ts'])
+        && request.resource.data.quotes is int
+        && request.resource.data.quotes >= 0 && request.resource.data.quotes < 1000000
+        && (!('removed' in request.resource.data)
+            || (request.resource.data.removed is int && request.resource.data.removed >= 0 && request.resource.data.removed < 1000000))
+        && request.resource.data.ts is number;
+    }
+
     // Lightmeter: gear, rolls of film and the frames logged on them
     match /users/{uid}/lm_cameras/{id} {
       allow read, delete: if owner(uid);
