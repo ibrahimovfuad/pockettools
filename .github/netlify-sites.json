@@ -1,0 +1,13 @@
+{
+  "_comment": "Apps listed in gitLinked are deployed by Netlify itself (linked to this repo). Every other folder in apps/ with a netlify.toml gets its own site, created and deployed by .github/workflows/netlify-apps.yml. names overrides the default site name <folder>-pockettools.",
+  "accountSlug": "nill-hqd83zi",
+  "gitLinked": {
+    "apps/mood": "moodlog2",
+    "apps/habits": "habitslog2",
+    "apps/bookshelf": "shelff2",
+    "apps/timer": "timerr2",
+    "apps/videocall": "facetime2",
+    "site": "pockettools2"
+  },
+  "names": {}
+}
