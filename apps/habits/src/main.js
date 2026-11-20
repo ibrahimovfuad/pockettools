@@ -7,6 +7,7 @@ import {
   initializeFirestore, getFirestore, persistentLocalCache, persistentSingleTabManager,
   collection, doc, setDoc, deleteDoc, onSnapshot, deleteField
 } from 'firebase/firestore';
+import { initAccount } from './account.js';
 
 // ================= Utilities =================
 const $ = id => document.getElementById(id);
@@ -85,6 +86,8 @@ function firebaseBackend() {
     },
     signIn() { const p = new GoogleAuthProvider(); p.setCustomParameters({ prompt: 'select_account' }); return signInWithRedirect(auth, p); },
     signOut() { subs.forEach(f => f()); subs = []; return signOut(auth); },
+    firebase: () => ({ db, auth }),
+    stop() { subs.forEach(f => f()); subs = []; },
     listen(uid, onHabits, onLogs) {
       subs.forEach(f => f());
       subs = [
@@ -123,6 +126,7 @@ function demoBackend() {
   return {
     onUser(f) { f({ uid: 'demo', name: 'Demo', email: 'Data stays on this device only', photo: null }); },
     signIn() { return Promise.resolve(); }, signOut() { toast('There is nothing to sign out of in demo mode'); },
+    firebase: () => null, stop() {},
     listen(uid, h, l) { cbH = h; cbL = l; emit(); },
     saveHabit(uid, h) { const a = read('habits-demo'); a[h.id] = h; write('habits-demo', a); emit(); },
     deleteHabit(uid, id) { const a = read('habits-demo'); delete a[id]; write('habits-demo', a); const L = read('habits-demo-logs'); delete L[id]; write('habits-demo-logs', L); emit(); },
@@ -247,6 +251,7 @@ function start() {
     if (!u) { habits = []; logs = new Map(); closeDetail(true); return; }
     $('demoBanner').classList.toggle('hide', !DEMO);
     renderAccount();
+    initAccount({ app: 'habits', getUser: () => user, getFirebase: () => store.firebase(), demoKeys: ['habits-demo'], stopListening: () => store.stop() });
     store.listen(u.uid, a => { habits = a.sort((x, y) => (x.created || 0) - (y.created || 0)); refresh(); }, m => { logs = m; refresh(); });
   });
   $('signInBtn').onclick = () => { $('loginErr').textContent = ''; store.signIn().catch(e => { $('loginErr').textContent = authError(e); }); };

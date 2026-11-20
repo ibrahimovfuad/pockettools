@@ -1,6 +1,7 @@
 // Weekly Digest — entry point. Edit this file, then run "npm run build" and commit public/app.js.
 // The app only reads what Mood, Habits, Spend and Bookshelf already store (same Firebase project and account).
 // Its single write is a tiny weekly snapshot (users/{uid}/digest_weeks) used to count removed quotes.
+import { initAccount } from './account.js';
 import { $, esc, iso, today } from './util.js';
 import { makeStore, DEMO, authError } from './backend.js';
 import { buildContext, digestFor, pastWeeks, removedQuotes, weekAt } from './digest.js';
@@ -64,12 +65,14 @@ function renderHome() {
     <div class="group"><label class="row"><span class="grow">Notify me on Sunday</span><input type="checkbox" class="switch" id="remOn" aria-describedby="remNote"></label>
       <button class="row link hide" id="remTest">Send a test notification</button></div>
     <div class="foot" id="remNote" role="status"></div>
+    <div data-pta-host></div>
     <div class="sect">Account</div>
     <div class="group"><div class="row"><span class="grow">${esc(user.name)}<span class="small">${esc(user.email)}</span></span></div>
       <button class="row danger press" id="signOut">Sign Out</button></div>
     <footer><a class="nf src" href="https://github.com/ibrahimovfuad/pockettools" target="_blank" rel="noopener">Open source on GitHub</a>
       <a class="nf tight" href="https://www.netlify.com" target="_blank" rel="noopener">This site is powered by Netlify</a><div class="app-ver"></div></footer>`;
   renderRem();
+  initAccount({ app: 'digest', getUser: () => user, getFirebase: () => store.firebase(), demoKeys: [], stopListening: () => store.stop() });
 }
 
 $('home').addEventListener('click', e => {

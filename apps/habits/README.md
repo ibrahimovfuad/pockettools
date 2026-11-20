@@ -18,6 +18,20 @@ public/        the site (public/app.js is the built bundle)
 src/main.js    app source → npm run build
 ```
 
+## Data stored
+
+`users/{uid}/habits/{id}` (name, emoji, colour, archive state) and `users/{uid}/logs/{habitId_year}` (check-ins and notes).
+
+## Delete your data
+
+Settings has an **Account & data** section (in Bookshelf: Profile), identical in every Pocket Tools app and powered by [`shared/account.js`](../../shared/account.js):
+
+- **Export my data** downloads one JSON file with everything stored about you in *all* Pocket Tools apps.
+- **Delete this app’s data** deletes only the data listed above and keeps your account.
+- **Delete account** deletes the data of every app, notification subscriptions on the servers and finally your sign-in account (type `DELETE` to confirm; Google may ask you to sign in again). If any step fails the account is kept and the failed steps are shown.
+
+Privacy policy: <https://pockettools2.netlify.app/privacy.html>. The list of collections lives in [`shared/user-data.json`](../../shared/user-data.json); if this app stores something new, register it there.
+
 ## Run locally
 
 ```bash

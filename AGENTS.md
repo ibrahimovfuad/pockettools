@@ -19,7 +19,7 @@ A monorepo of small, independent PWAs. Each app is its own Netlify site, deploye
 
 `firebase/firestore.rules` holds the Firestore security rules shared by the Firebase apps, with tests in `firebase/test/` (run on the emulator by CI and before every publish). Never loosen a rule without a reason: every collection must stay readable and writable only by its owner (`request.auth.uid`). Add tests for every new collection.
 
-`shared/` holds files copied into several apps (`nozoom.js`, `onboarding.js`, `config.js`). Edit them there and run `npm run sync-shared`; never edit a copy.
+`shared/` holds files copied into several apps (`nozoom.js`, `onboarding.js`, `config.js`, and for the Firebase apps `account.js` and `user-data.json`). Edit them there and run `npm run sync-shared`; never edit a copy.
 
 ## Rules
 
@@ -34,6 +34,10 @@ A monorepo of small, independent PWAs. Each app is its own Netlify site, deploye
 9. **Never push to `main`.** Work on a branch (`fix/…`, `feat/…`, `ci/…`), open a pull request and merge it only when the **CI ok** check is green. `main` is protected by a ruleset.
 10. **Merging never deploys; releases do.** Each production deploy costs Netlify credits, so batch merged work into one release (see below).
 
+## User data (GDPR)
+
+Every app that stores user data in Firebase or on a server must be listed in `shared/user-data.json` (its Firestore collections under `users/{uid}/`, any other Firestore documents it owns, and any server-side store such as Netlify Blobs) and must offer an **Account & data** section with *Export my data*, *Delete this app's data* and *Delete account*. The code is shared: `shared/account.js` is copied into each bundled app's `src/` (via `shared/manifest.json`); import `initAccount` from `./account.js`, put `<div data-pta-host></div>` in the settings screen and call `initAccount({ app, getUser, getFirebase, demoKeys, stopListening })` (see Mood, Spend or Digest). A new Firebase app made with `npm run new-app -- … --firebase` is registered and wired up for this automatically; fill in its collections. CI (`pt.py check`) fails if a collection in `firebase/firestore.rules` is missing from the registry, so nothing can be added that "Delete account" would miss. A server-side store must also answer authenticated `export` and `delete` actions like `apps/mood/netlify/functions/reminder.mjs`. If you add a new kind of personal data, update `site/privacy.html` and the app's README ("Data stored", "Delete your data"). `npm run test:account` tests the export and delete logic.
+
 ## Releases
 
 Netlify never builds from Git (`ignore = "exit 0"` in every `netlify.toml`). `.github/workflows/release.yml` deploys with the Netlify CLI. Releasing is a manual decision; everything after it is automatic.
@@ -45,7 +49,7 @@ Netlify never builds from Git (`ignore = "exit 0"` in every `netlify.toml`). `.g
 - Firestore rules are published in a release run (button or tag), only when they changed since the previous tag, and only after their tests pass.
 - `.github/workflows/monitor.yml` checks every morning that all sites answer and run the latest release, and opens an issue if not.
 
-Tools: `npm run release` (tag from the command line), `npm run new-app` (new app from `apps/_template`, registered everywhere), `npm run sync-shared`, `npm run check`, `npm run test:smoke`, `npm run test:rules`. Dependabot opens monthly update PRs; an app dependency update needs a rebuild and a CACHE bump before CI passes.
+Tools: `npm run release` (tag from the command line), `npm run new-app` (new app from `apps/_template`, registered everywhere), `npm run sync-shared`, `npm run check`, `npm run test:smoke`, `npm run test:rules`, `npm run test:account`. Dependabot opens monthly update PRs; an app dependency update needs a rebuild and a CACHE bump before CI passes.
 
 ## Before committing
 

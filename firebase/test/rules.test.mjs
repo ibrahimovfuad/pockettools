@@ -1,6 +1,7 @@
 // Firestore rules tests. Run with "npm run test:rules" (starts the emulator; needs Java 11+).
 // Every collection must be readable and writable only by its owner, and the validation rules must hold.
 import { readFileSync } from 'node:fs';
+import assert from 'node:assert/strict';
 import { after, before, beforeEach, describe, test } from 'node:test';
 import { assertFails, assertSucceeds, initializeTestEnvironment } from '@firebase/rules-unit-testing';
 import { collection, deleteDoc, doc, getDoc, getDocs, setDoc, updateDoc } from 'firebase/firestore';
@@ -29,6 +30,7 @@ const VALID = [
   ['spend_expenses/e1', { amount: 23.49, catId: 'c1', date: '2026-01-31', ts: 1, merchant: 'Żabka', source: 'applepay' }],
   ['spend_meta/settings', { budget: 2000, rules: { 'Żabka': 'c1' } }],
   ['digest_weeks/2026-W47', { quotes: 12, removed: 1, ts: 1763913600000 }],
+  ['mood_consent/consent', { at: 1763913600000, version: 1 }],
   ['lm_cameras/k1', { name: 'Canon FTb', fastest: 0.001, slowest: 1 }],
   ['lm_lenses/l1', { name: 'Canon FL 50', focal: 50, widest: 1.8, smallest: 16 }],
   ['lm_films/f1', { name: 'Portra 400', iso: 400, exposures: 36 }],
@@ -103,6 +105,17 @@ describe('validation', () => {
     await assertFails(put('digest_weeks/2026-W47', { ...w, removed: 'many' }));
     await assertFails(put('digest_weeks/2026-W47', { ...w, text: 'a quote' }));
   });
+  test('Mood consent: one document called "consent" with a time and a whole version number', async () => {
+    const c = { at: 1763913600000, version: 1 };
+    await assertSucceeds(put('mood_consent/consent', c));
+    await assertFails(put('mood_consent/other', c));
+    await assertFails(put('mood_consent/consent', { at: 1763913600000 }));
+    await assertFails(put('mood_consent/consent', { version: 1 }));
+    await assertFails(put('mood_consent/consent', { ...c, at: 'now' }));
+    await assertFails(put('mood_consent/consent', { ...c, version: 1.5 }));
+    await assertFails(put('mood_consent/consent', { ...c, version: 0 }));
+    await assertFails(put('mood_consent/consent', { ...c, extra: true }));
+  });
   test('updates are validated too', async () => {
     await assertSucceeds(put('days/2026-01-31', { score: 5 }));
     await assertFails(updateDoc(doc(db(OWNER), `users/${OWNER}/days/2026-01-31`), { score: 99 }));
@@ -124,5 +137,32 @@ describe('public shelves', () => {
     await assertFails(updateDoc(doc(db(OWNER), 'public/abc123'), { uid: OTHER }));
     await assertFails(deleteDoc(doc(db(OTHER), 'public/abc123')));
     await assertSucceeds(deleteDoc(doc(db(OWNER), 'public/abc123')));
+  });
+});
+
+describe('account deletion: the owner can remove everything', () => {
+  test('the owner can empty every collection and the profile; nobody else can', async () => {
+    const own = db(OWNER);
+    for (const [path, data] of VALID) await env.withSecurityRulesDisabled(c => setDoc(doc(c.firestore(), `users/${OWNER}/${path}`), data));
+    await env.withSecurityRulesDisabled(c => setDoc(doc(c.firestore(), `users/${OWNER}`), { share: { on: true, id: 'abc123' } }));
+    await env.withSecurityRulesDisabled(c => setDoc(doc(c.firestore(), 'public/abc123'), { uid: OWNER }));
+    // listing a collection page by page (as the export and delete code does) is allowed for the owner only
+    for (const name of new Set(VALID.map(([p]) => p.split('/')[0]))) {
+      await assertFails(getDocs(collection(db(OTHER), `users/${OWNER}/${name}`)));
+      const snap = await assertSucceeds(getDocs(collection(own, `users/${OWNER}/${name}`)));
+      assert.ok(snap.size >= 1, name);
+    }
+    await assertFails(deleteDoc(doc(db(OTHER), `users/${OWNER}`)));
+    await assertFails(deleteDoc(doc(db(null), `users/${OWNER}`)));
+    await assertFails(deleteDoc(doc(db(OTHER), 'public/abc123')));
+    // the owner deletes the public shelf by the id kept in their own profile, then every document, then the profile
+    const profile = await assertSucceeds(getDoc(doc(own, `users/${OWNER}`)));
+    await assertSucceeds(deleteDoc(doc(own, 'public', profile.data().share.id)));
+    for (const [path] of VALID) await assertSucceeds(deleteDoc(doc(own, `users/${OWNER}/${path}`)));
+    await assertSucceeds(deleteDoc(doc(own, `users/${OWNER}`)));
+    await env.withSecurityRulesDisabled(async c => {
+      for (const [path] of VALID) assert.equal((await getDoc(doc(c.firestore(), `users/${OWNER}/${path}`))).exists(), false, path);
+      assert.equal((await getDoc(doc(c.firestore(), 'public/abc123'))).exists(), false);
+    });
   });
 });
