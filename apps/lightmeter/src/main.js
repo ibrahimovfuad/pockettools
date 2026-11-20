@@ -120,19 +120,20 @@ const DIALS = {
 // <input type=checkbox switch> gives a system haptic when its label is clicked. Safari only plays it
 // for user-initiated events, so on iPhone the reliable tick is the one when the finger lifts.
 const IS_IOS = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-let hapticLabel = null;
+// Same technique as the ios-haptics library: a fresh hidden switch, clicked and removed.
 function tick() {
   if (!IS_IOS && navigator.vibrate) { try { navigator.vibrate(7); } catch (e) {} return; }
   if (!IS_IOS) return;
-  if (!hapticLabel) {
-    hapticLabel = document.createElement('label');
-    hapticLabel.setAttribute('aria-hidden', 'true');
-    hapticLabel.style.display = 'none';
+  try {
+    const label = document.createElement('label');
+    label.setAttribute('aria-hidden', 'true');
+    label.style.display = 'none';
     const sw = document.createElement('input');
-    sw.type = 'checkbox'; sw.setAttribute('switch', ''); sw.tabIndex = -1;
-    hapticLabel.appendChild(sw); document.body.appendChild(hapticLabel);
-  }
-  try { hapticLabel.click(); } catch (e) {}
+    sw.type = 'checkbox'; sw.setAttribute('switch', '');
+    label.appendChild(sw); document.head.appendChild(label);
+    label.click();
+    document.head.removeChild(label);
+  } catch (e) {}
 }
 
 function nearestButton(el) {
@@ -150,34 +151,44 @@ function buildDial(k) {
   if (!el._bound) {
     el._bound = true;
     let t = null, raf = 0, lastTick = null;
-    const user = () => performance.now() < (el._userUntil || 0);
-    // the finger is on the dial (or the dial is still coasting after a flick): ticks are allowed
-    ['touchstart', 'touchmove', 'pointerdown', 'wheel'].forEach(n => el.addEventListener(n, () => { el._userUntil = performance.now() + 1800; el._progUntil = 0; }, { passive: true }));
-    el.addEventListener('touchend', () => {
-      el._userUntil = performance.now() + 1800;
-      if (IS_IOS) tick();                          // the one haptic iPhone reliably plays: when the finger lifts
-    }, { passive: true });
+    const userActive = () => el._touching || performance.now() < (el._userUntil || 0);
+    // magnet: once the user's scroll has stopped, settle exactly on the nearest value
+    const settle = () => {
+      if (el._touching) return;                    // finger still down: wait for it to lift
+      const b = nearestButton(el); if (!b) return;
+      const x = +b.dataset.v;
+      const changed = x !== el._val;               // check before scrollDial(), which records the value
+      el._userUntil = 0;
+      scrollDial(k, x, true);
+      if (changed) onDial(k, x);
+    };
+    el.addEventListener('touchstart', () => { el._touching = true; el._userUntil = 0; clearTimeout(t); }, { passive: true });
+    ['pointerdown', 'wheel'].forEach(n => el.addEventListener(n, () => { el._userUntil = performance.now() + 1500; }, { passive: true }));
+    const lift = () => {
+      if (!el._touching) return;
+      el._touching = false;
+      el._userUntil = performance.now() + 1500;    // the dial may keep coasting after a flick
+      if (IS_IOS) tick();                          // the one haptic iPhone plays from a scroll gesture: when the finger lifts
+      clearTimeout(t); t = setTimeout(settle, 160); // no momentum: settle now; momentum: scroll events push this back
+    };
+    el.addEventListener('touchend', lift, { passive: true });
+    el.addEventListener('touchcancel', lift, { passive: true });
     el.addEventListener('scroll', () => {
-      if (performance.now() < (el._progUntil || 0)) return;
+      if (!userActive()) return;                   // programmatic scroll (a new light reading): ignore
+      el._userUntil = Math.max(el._userUntil || 0, performance.now() + 300);
       // live "ratchet": highlight and tick on every step while the user turns the dial
       cancelAnimationFrame(raf);
       raf = requestAnimationFrame(() => {
         const b = nearestButton(el); if (!b) return;
         const x = +b.dataset.v;
         if (x !== lastTick) {
-          if (lastTick !== null && user()) tick();
+          if (lastTick !== null) tick();
           lastTick = x;
           el.querySelectorAll('button.cur').forEach(o => o.classList.remove('cur')); b.classList.add('cur');
         }
       });
       clearTimeout(t);
-      t = setTimeout(() => {
-        const b = nearestButton(el); if (!b) return;
-        const x = +b.dataset.v;
-        const changed = x !== el._val;             // check before scrollDial(), which records the value
-        scrollDial(k, x, true);                    // magnet: settle exactly on the value
-        if (changed) onDial(k, x);
-      }, 120);
+      t = setTimeout(settle, 140);
     }, { passive: true });
   }
 }
@@ -187,8 +198,12 @@ function scrollDial(k, x, smoothScroll) {
   el.querySelectorAll('button.cur').forEach(o => o.classList.remove('cur'));
   if (!b) return;
   b.classList.add('cur');
-  el._progUntil = performance.now() + (smoothScroll ? 450 : 160);
-  el.scrollTo({ left: b.offsetLeft - (el.clientWidth - b.offsetWidth) / 2, behavior: smoothScroll ? 'smooth' : 'auto' });
+  // never move a dial under the user's finger (or while it coasts): a new light reading used to
+  // scroll it mid-gesture, which is why values could be dragged off-centre and never snapped
+  if (el._touching || performance.now() < (el._userUntil || 0)) return;
+  const left = b.offsetLeft - (el.clientWidth - b.offsetWidth) / 2;
+  if (Math.abs(el.scrollLeft - left) < 1) return;
+  el.scrollTo({ left, behavior: smoothScroll ? 'smooth' : 'auto' });
 }
 function buildAll() { ['i', 'a', 's', 'e'].forEach(buildDial); }
 

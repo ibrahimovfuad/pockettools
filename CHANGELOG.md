@@ -4,6 +4,7 @@ All notable changes to Pocket Tools are listed here, newest first.
 
 ## 2026-11-20
 
+- Lightmeter: dials no longer get scrolled by new light readings while you turn them, so they always snap to a value; iPhone haptic uses a fresh hidden switch each time.
 - Spend: amounts from iOS Shortcuts are parsed even with a currency symbol or thousands separators ("23,49 zł", "PLN 1 234,56").
 ### Lightmeter
 - Dials snap precisely onto a value after you let go.
