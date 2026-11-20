@@ -7,6 +7,7 @@ import {
   initializeFirestore, getFirestore, persistentLocalCache, persistentSingleTabManager,
   collection, doc, setDoc, deleteDoc, onSnapshot
 } from 'firebase/firestore';
+import { initAccount } from './account.js';
 
 // ================= Utilities =================
 const $ = id => document.getElementById(id);
@@ -104,6 +105,8 @@ function firebaseBackend() {
     },
     signIn() { const p = new GoogleAuthProvider(); p.setCustomParameters({ prompt: 'select_account' }); return signInWithRedirect(auth, p); },
     signOut() { subs.forEach(f => f()); subs = []; return signOut(auth); },
+    firebase: () => ({ db, auth }),
+    stop() { subs.forEach(f => f()); subs = []; },
     listen(uid, on) {
       subs.forEach(f => f());
       subs = [
@@ -132,6 +135,7 @@ function demoBackend() {
   return {
     onUser(f) { f({ uid: 'demo', name: 'Demo', email: 'Data stays on this device only' }); },
     signIn() { return Promise.resolve(); }, signOut() { showError('There is nothing to sign out of in demo mode'); return Promise.resolve(); },
+    firebase: () => null, stop() {},
     listen(uid, cbs) { on = cbs; emit(); },
     put(uid, coll, id, data) { const a = read(coll); a[id] = { ...data, id }; write(coll, a); emit(); },
     del(uid, coll, id) { const a = read(coll); delete a[id]; write(coll, a); emit(); },
@@ -139,6 +143,8 @@ function demoBackend() {
   };
 }
 const store = DEMO ? demoBackend() : firebaseBackend();
+// "Account & data" section of the settings screen (export, delete); see src/account.js
+const ACCOUNT = { app: 'spend', getUser: () => user, getFirebase: () => store.firebase(), demoKeys: ['spend-demo-'], stopListening: () => store.stop() };
 
 // ================= State =================
 let user = null, cats = [], exps = [], meta = {}, seeded = false, loaded = { cats: false, exps: false, meta: false };
@@ -376,6 +382,8 @@ function renderSettings() {
     <div class="sect">Data</div>
     <div class="group"><button class="row link press" id="exportCsv">Export to CSV</button></div>
 
+    <div data-pta-host></div>
+
     <div class="sect">Account</div>
     <div class="group"><div class="row"><span class="grow">${esc(user.name)}<span class="small">${esc(user.email)}</span></span></div>
       <button class="row danger press" id="signOut">Sign Out</button></div>
@@ -392,6 +400,7 @@ function renderSettings() {
   $('exportCsv').onclick = exportCsv;
   $('signOut').onclick = () => store.signOut();
   bindReorder($('catList'));
+  initAccount(ACCOUNT);
 }
 
 // drag ≡ to reorder categories
@@ -491,6 +500,7 @@ function start() {
     $('app').classList.toggle('hide', !u);
     if (!u) { cats = []; exps = []; meta = {}; return; }
     loaded = { cats: false, exps: false, meta: false };
+    initAccount(ACCOUNT);
     go('amount');
     store.listen(u.uid, {
       cats: (a, fromCache) => { cats = a; if (!fromCache) { loaded.cats = true; if (!a.length) seedCategories(); } else if (a.length) loaded.cats = true; render(); handleIncoming(); },

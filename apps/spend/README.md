@@ -17,6 +17,20 @@ Log an expense in two taps: type the amount, tap a category. Live at https://spe
 
 `users/{uid}/spend_categories`, `users/{uid}/spend_expenses` (amount in zł, catId, date `YYYY-MM-DD`, note, merchant, source), `users/{uid}/spend_meta/settings` (budget, shop rules). Rules: [`firebase/firestore.rules`](../../firebase/firestore.rules) — owner-only.
 
+## Data stored
+
+`users/{uid}/spend_categories`, `users/{uid}/spend_expenses` and `users/{uid}/spend_meta/settings`.
+
+## Delete your data
+
+Settings has an **Account & data** section (in Bookshelf: Profile), identical in every Pocket Tools app and powered by [`shared/account.js`](../../shared/account.js):
+
+- **Export my data** downloads one JSON file with everything stored about you in *all* Pocket Tools apps.
+- **Delete this app’s data** deletes only the data listed above and keeps your account.
+- **Delete account** deletes the data of every app, notification subscriptions on the servers and finally your sign-in account (type `DELETE` to confirm; Google may ask you to sign in again). If any step fails the account is kept and the failed steps are shown.
+
+Privacy policy: <https://pockettools2.netlify.app/privacy.html>. The list of collections lives in [`shared/user-data.json`](../../shared/user-data.json); if this app stores something new, register it there.
+
 ## Run locally
 
 ```bash

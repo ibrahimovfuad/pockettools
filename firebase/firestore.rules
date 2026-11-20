@@ -78,6 +78,18 @@ service cloud.firestore {
         && (!('rules' in request.resource.data) || (request.resource.data.rules is map && request.resource.data.rules.size() <= 500));
     }
 
+    // Mood: the user's one-time consent to store entries in the cloud (a single document, id "consent").
+    // "at" is the time of consent in milliseconds, "version" the consent text version the user agreed to.
+    match /users/{uid}/mood_consent/{id} {
+      allow read, delete: if owner(uid);
+      allow create, update: if owner(uid) && id == 'consent'
+        && request.resource.data.keys().hasOnly(['at', 'version'])
+        && request.resource.data.keys().hasAll(['at', 'version'])
+        && request.resource.data.at is number
+        && request.resource.data.version is int
+        && request.resource.data.version > 0 && request.resource.data.version < 1000;
+    }
+
     // Weekly Digest: one small snapshot per ISO week (id like 2026-W47). The app counts the quotes
     // at each visit so it can tell how many were removed (deleted documents leave no trace).
     match /users/{uid}/digest_weeks/{id} {

@@ -7,6 +7,7 @@ import {
   initializeFirestore, getFirestore, persistentLocalCache, persistentSingleTabManager,
   collection, doc, setDoc, deleteDoc, getDoc, onSnapshot, writeBatch
 } from 'firebase/firestore';
+import { initAccount } from './account.js';
 import { prepareZXingModule, readBarcodes } from 'zxing-wasm/reader';
 
 // ===================== Utilities =====================
@@ -117,6 +118,8 @@ function firebaseBackend() {
     },
     signIn() { const p = new GoogleAuthProvider(); p.setCustomParameters({ prompt: 'select_account' }); return signInWithRedirect(getAuth(), p); },
     signOut() { subs.forEach(f => f()); subs = []; return signOut(getAuth()); },
+    firebase: () => ({ db, auth: getAuth() }),
+    stop() { subs.forEach(f => f()); subs = []; },
     listen(uid, on) {
       subs.forEach(f => f());
       subs = [
@@ -154,6 +157,7 @@ function demoBackend() {
   return {
     onUser(cb) { cb({ uid: 'demo', name: 'Demo', email: 'data stays on this device only', photo: null }); },
     signIn() { return Promise.resolve(); }, signOut() { toast('There is nothing to sign out of in demo mode'); return Promise.resolve(); },
+    firebase: () => null, stop() {},
     listen(uid, o) { on = o; emit(); },
     saveBook(uid, b) { put('polka-books', b.id, clean(b)); emit(); },
     async saveBooks(uid, list) { const o = R('polka-books', {}); list.forEach(b => { o[b.id] = clean(b); }); W('polka-books', o); emit(); },
@@ -167,6 +171,8 @@ function demoBackend() {
   };
 }
 const store = DEMO ? demoBackend() : firebaseBackend();
+// "Account & data" section of the profile screen (export, delete); see src/account.js
+const ACCOUNT = { app: 'bookshelf', getUser: () => S.user, getFirebase: () => store.firebase(), demoKeys: ['polka-books', 'polka-quotes', 'polka-profile', 'polka-public-'], stopListening: () => store.stop() };
 
 // ===================== State =====================
 const S = {
@@ -273,7 +279,7 @@ function render() {
   else if (S.view === 'search') sc.innerHTML = searchHTML();
   else if (S.view === 'stats') sc.innerHTML = statsHTML();
   else if (S.view === 'quotes') sc.innerHTML = quotesHTML();
-  else if (S.view === 'profile') sc.innerHTML = profileHTML();
+  else if (S.view === 'profile') { sc.innerHTML = profileHTML(); initAccount(ACCOUNT); }
   $('bar').innerHTML = barHTML();
   $('bar').classList.toggle('hide', !(S.view === 'lib' || S.view === 'search'));
   if (focused && (focused === 'q' || focused === 'qq')) { const e = $(focused); if (e) { e.focus(); try { e.setSelectionRange(caret, caret); } catch (x) {} } }
@@ -526,6 +532,7 @@ function profileHTML() {
       <button class="gi" data-go="stats">${I.chart.replace('<svg', '<svg width="20" height="20" style="color:var(--accent)"')}<span class="grow">Statistics and year in review</span>${I.chev}</button>
     </div>
     ${DEMO ? '<div class="foot">Demo mode: data is stored on this device only.</div>' : ''}
+    <div data-pta-host></div>
     <div class="grp" style="margin-top:22px"><button class="gi danger center" data-act="signout">Sign out</button></div>
     <a class="nf src" href="https://github.com/ibrahimovfuad/pockettools" target="_blank" rel="noopener">Open source on GitHub</a>
     <div class="app-ver"></div>`;

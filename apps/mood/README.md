@@ -22,6 +22,20 @@ netlify/functions/   reminder API + hourly sender
 netlify/lib/         shared push helpers
 ```
 
+## Data stored
+
+`users/{uid}/days/{YYYY-MM-DD}` (score 0–10, note), `users/{uid}/mood_consent/consent` (`{ at, version }`: when you agreed to cloud storage; Mood asks once, before the first entry is saved, and asks again if the consent text version changes). On the server (Netlify Blobs, store `reminders`, key = your Firebase uid): reminder hour, time zone, whether it is on, the last rated day and your Web Push subscriptions. `POST /api/reminder` also understands `export` and `delete` (Firebase ID token required, verified server-side); the other apps call `delete` when you delete your account.
+
+## Delete your data
+
+Settings has an **Account & data** section (in Bookshelf: Profile), identical in every Pocket Tools app and powered by [`shared/account.js`](../../shared/account.js):
+
+- **Export my data** downloads one JSON file with everything stored about you in *all* Pocket Tools apps.
+- **Delete this app’s data** deletes only the data listed above and keeps your account.
+- **Delete account** deletes the data of every app, notification subscriptions on the servers and finally your sign-in account (type `DELETE` to confirm; Google may ask you to sign in again). If any step fails the account is kept and the failed steps are shown.
+
+Privacy policy: <https://pockettools2.netlify.app/privacy.html>. The list of collections lives in [`shared/user-data.json`](../../shared/user-data.json); if this app stores something new, register it there.
+
 ## Run locally
 
 ```bash

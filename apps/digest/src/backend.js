@@ -44,6 +44,8 @@ function firebaseBackend(onError) {
     },
     signIn() { const p = new GoogleAuthProvider(); p.setCustomParameters({ prompt: 'select_account' }); return signInWithRedirect(auth, p); },
     signOut() { subs.forEach(f => f()); subs = []; return signOut(auth); },
+    firebase: () => ({ db, auth }),
+    stop() { subs.forEach(f => f()); subs = []; },
     // on[name](docs, fromCache) for every collection in LISTS
     listen(uid, on) {
       subs.forEach(f => f());
@@ -67,6 +69,7 @@ function demoBackend() {
     onUser(f) { f({ uid: 'demo', name: 'Demo', email: 'Sample data — nothing is stored' }); },
     signIn() { return Promise.resolve(); },
     signOut() { return Promise.resolve(); },
+    firebase: () => null, stop() {},
     listen(uid, on) {
       const d = demoData();
       Object.keys(LISTS).forEach(k => on[k](d[k] || [], false));

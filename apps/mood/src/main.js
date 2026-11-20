@@ -7,6 +7,7 @@ import {
   initializeFirestore, getFirestore, persistentLocalCache, persistentSingleTabManager,
   collection, doc, setDoc, deleteDoc, onSnapshot, serverTimestamp
 } from 'firebase/firestore';
+import { initAccount, registry } from './account.js';
 
 // ================= Utilities =================
 const $ = id => document.getElementById(id);
@@ -46,14 +47,14 @@ function firebaseBackend() {
   let db;
   try { db = initializeFirestore(app, { localCache: persistentLocalCache({ tabManager: persistentSingleTabManager() }) }); }
   catch (e) { db = getFirestore(app); }
-  let unsub = null;
+  let unsub = null, unsubConsent = null;
   return {
     onUser(cb) {
       getRedirectResult(auth).catch(e => { $('loginErr').textContent = authError(e); });
       onAuthStateChanged(auth, u => cb(u && { uid: u.uid, name: u.displayName || 'No name', email: u.email || '', photo: u.photoURL }));
     },
     signIn() { const p = new GoogleAuthProvider(); p.setCustomParameters({ prompt: 'select_account' }); return signInWithRedirect(auth, p); },
-    signOut() { if (unsub) unsub(); return signOut(auth); },
+    signOut() { this.stop(); return signOut(auth); },
     listen(uid, cb) {
       if (unsub) unsub();
       unsub = onSnapshot(collection(db, 'users', uid, 'days'), snap => {
@@ -61,6 +62,14 @@ function firebaseBackend() {
       }, e => toast('Loading error: ' + (e.code || e.message)));
     },
     // no await: on a bad connection the write goes to the local cache first and syncs later
+    // one-time consent to store entries in the cloud (see the consent screen); cb(data | null, fromCache) or cb(undefined) on error
+    listenConsent(uid, cb) {
+      if (unsubConsent) unsubConsent();
+      unsubConsent = onSnapshot(doc(db, 'users', uid, 'mood_consent', 'consent'), s => cb(s.exists() ? s.data() : null, s.metadata.fromCache), () => cb(undefined, false));
+    },
+    giveConsent(uid) { return setDoc(doc(db, 'users', uid, 'mood_consent', 'consent'), { at: Date.now(), version: registry.consents.mood }); },
+    firebase: () => ({ db, auth }),
+    stop() { if (unsub) unsub(); unsub = null; if (unsubConsent) unsubConsent(); unsubConsent = null; },
     save(uid, date, score, note) { setDoc(doc(db, 'users', uid, 'days', date), { score, note, updatedAt: serverTimestamp() }).catch(e => toast('Not saved: ' + (e.code || e.message))); },
     remove(uid, date) { deleteDoc(doc(db, 'users', uid, 'days', date)).catch(e => toast('Not deleted: ' + (e.code || e.message))); },
     token() { return auth.currentUser ? auth.currentUser.getIdToken() : Promise.resolve(null); }
@@ -84,6 +93,9 @@ function demoBackend() {
     onUser(f) { f({ uid: 'demo', name: 'Demo', email: 'Data stays on this device only', photo: null }); },
     signIn() {}, signOut() { toast('There is nothing to sign out of in demo mode'); },
     listen(uid, f) { cb = f; f(read()); },
+    listenConsent(uid, f) { f({ at: 0, version: registry.consents.mood }, false); },   // demo data never leaves the device
+    giveConsent() { return Promise.resolve(); },
+    firebase: () => null, stop() {},
     save(uid, date, score, note) { const m = read(); m.set(date, { score, note }); write(m); },
     remove(uid, date) { const m = read(); m.delete(date); write(m); },
     token() { return Promise.resolve(null); }
@@ -99,14 +111,40 @@ let rateDate = iso(today());       // the day being rated
 let editing = false;
 let period = 'week', offset = 0;
 
+// ================= Consent (stored in the user's own data: users/{uid}/mood_consent/consent) =================
+// Mood entries can count as health-related data, so nothing is saved before the user has agreed once.
+// 'unknown' until the server has answered, then 'ok' or 'needed'.
+let consent = 'unknown', consentTimer = null;
+function applyScreens() {
+  $('login').classList.toggle('hide', !!user);
+  $('main').classList.toggle('hide', !user || consent === 'needed');
+  $('consent').classList.toggle('hide', !user || consent !== 'needed');
+}
+function onConsent(data, fromCache) {
+  clearTimeout(consentTimer);
+  if (data && data.version >= registry.consents.mood) consent = 'ok';
+  else if (data === undefined) consent = 'unknown';               // could not read it: keep saving blocked, do not show a wrong screen
+  else if (!fromCache) consent = 'needed';
+  else consentTimer = setTimeout(() => { consent = 'needed'; applyScreens(); }, 3000);   // offline and nothing cached: ask anyway
+  applyScreens();
+}
+$('agreeBtn').onclick = () => {
+  const b = $('agreeBtn'); b.disabled = true;
+  store.giveConsent(user.uid).then(() => { consent = 'ok'; applyScreens(); }, e => { toast('Could not save your choice: ' + (e.code || e.message)); })
+    .finally(() => { b.disabled = false; });
+};
+$('consentOutBtn').onclick = () => store.signOut();
+
 function start() {
   store.onUser(u => {
   user = u;
-  $('login').classList.toggle('hide', !!u);
-  $('main').classList.toggle('hide', !u);
+  consent = 'unknown'; clearTimeout(consentTimer);
+  applyScreens();
   if (!u) { entries = new Map(); return; }
   $('demoBanner').classList.toggle('hide', !DEMO);
   renderAccount();
+  initAccount({ app: 'mood', getUser: () => user, getFirebase: () => store.firebase(), demoKeys: ['mood-demo'], stopListening: () => store.stop() });
+  store.listenConsent(u.uid, onConsent);
   store.listen(u.uid, m => { entries = m; renderToday(); renderStats(); });
   loadReminder();
   });
@@ -178,6 +216,7 @@ function renderToday() {
 }
 
 $('saveBtn').onclick = () => {
+  if (consent !== 'ok') { toast(consent === 'unknown' ? 'One moment…' : 'Please agree first'); return; }
   const score = Number(slider.value), note = $('note').value.trim().slice(0, 1000);
   store.save(user.uid, rateDate, score, note);
   entries.set(rateDate, { score, note });     // show immediately, without waiting for the network

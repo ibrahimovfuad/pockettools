@@ -42,6 +42,20 @@ netlify/functions/   reminder API (/api/reminder) + hourly sender
 netlify/lib/         shared push helpers
 ```
 
+## Data stored
+
+`users/{uid}/digest_weeks/{YYYY-Www}` (one small snapshot per week) and, on the server (Netlify Blobs, store `digest-reminders`, key = your Firebase uid), whether the Sunday notification is on and your Web Push subscriptions. The app only reads Mood, Habits, Spend and Bookshelf data; it never stores it. Note: it saves a new snapshot for the current week the next time you open it, so after “Delete this app’s data” one fresh snapshot appears again.
+
+## Delete your data
+
+Settings has an **Account & data** section (in Bookshelf: Profile), identical in every Pocket Tools app and powered by [`shared/account.js`](../../shared/account.js):
+
+- **Export my data** downloads one JSON file with everything stored about you in *all* Pocket Tools apps.
+- **Delete this app’s data** deletes only the data listed above and keeps your account.
+- **Delete account** deletes the data of every app, notification subscriptions on the servers and finally your sign-in account (type `DELETE` to confirm; Google may ask you to sign in again). If any step fails the account is kept and the failed steps are shown.
+
+Privacy policy: <https://pockettools2.netlify.app/privacy.html>. The list of collections lives in [`shared/user-data.json`](../../shared/user-data.json); if this app stores something new, register it there.
+
 ## Run locally
 
 ```bash

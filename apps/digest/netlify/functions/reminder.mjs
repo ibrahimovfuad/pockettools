@@ -1,12 +1,16 @@
 // /api/reminder — the user's digest notification settings.
 // GET  → public VAPID key.
-// POST (with a Firebase ID token) → get | save | test
+// POST (with a Firebase ID token) → get | save | test | export | delete
 import { getStore } from '@netlify/blobs';
 import { createRemoteJWKSet, jwtVerify } from 'jose';
 import { sendTo, DIGEST } from '../lib/push.mjs';
 
 const JWKS = createRemoteJWKSet(new URL('https://www.googleapis.com/service_accounts/v1/jwk/securetoken@system.gserviceaccount.com'));
-const json = (o, status = 200) => new Response(JSON.stringify(o), { status, headers: { 'content-type': 'application/json', 'cache-control': 'no-store' } });
+// The other Pocket Tools apps call this endpoint from their own domains to export or delete a user's stored data
+// (Account & data → Delete account in any app). It is safe to allow any origin: every POST needs the user's own
+// Firebase ID token in the Authorization header, and no cookies are used.
+const CORS = { 'access-control-allow-origin': '*', 'access-control-allow-headers': 'authorization, content-type', 'access-control-allow-methods': 'GET, POST, OPTIONS', 'access-control-max-age': '86400' };
+const json = (o, status = 200) => new Response(JSON.stringify(o), { status, headers: { 'content-type': 'application/json', 'cache-control': 'no-store', ...CORS } });
 
 async function userId(req) {
   const project = process.env.FIREBASE_PROJECT_ID;
@@ -19,6 +23,7 @@ async function userId(req) {
 }
 
 export default async (req) => {
+  if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: CORS });
   if (req.method === 'GET') return json({ vapidPublicKey: process.env.VAPID_PUBLIC_KEY || null });
   if (req.method !== 'POST') return json({ error: 'method' }, 405);
 
@@ -48,6 +53,14 @@ export default async (req) => {
       cur.subs = await sendTo(cur.subs || [], DIGEST);
       await store.setJSON(uid, cur);
       return json({ ok: true, devices: cur.subs.length });
+
+    case 'export':  // everything stored about the user, without the push keys
+      return json({ ...Object.fromEntries(Object.entries(cur).filter(([k]) => k !== 'subs')), devices: (cur.subs || []).length,
+        pushEndpointHosts: [...new Set((cur.subs || []).map(x => { try { return new URL(x.endpoint).host; } catch (e) { return ''; } }))] });
+
+    case 'delete':  // remove the user's whole record: settings and push subscriptions
+      await store.delete(uid);
+      return json({ ok: true });
 
     default:
       return json({ error: 'action' }, 400);

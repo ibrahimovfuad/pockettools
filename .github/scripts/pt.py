@@ -145,6 +145,21 @@ def check(base, head='HEAD'):
                 if not p.exists() or p.read_bytes() != src:
                     errors.append(f'{t}/{name} differs from shared/{name} — edit shared/{name} and run "node scripts/sync-shared.mjs".')
 
+    # 6. every per-user Firestore collection is in the user-data registry (shared/user-data.json), and every
+    #    Firebase app that has shared/account.js copied in is listed. The registry drives "Export my data" and "Delete account".
+    reg_file, rules_file = ROOT / 'shared/user-data.json', ROOT / 'firebase/firestore.rules'
+    if reg_file.exists() and rules_file.exists():
+        reg = json.loads(reg_file.read_text())
+        listed = {c['id'] for a in [*reg['apps'].values(), *reg.get('legacy', {}).values()] for c in a['collections']}
+        in_rules = set(re.findall(r'match /users/\{uid\}/([A-Za-z0-9_]+)/\{[a-zA-Z]+\}', rules_file.read_text()))
+        for c in sorted(in_rules - listed):
+            errors.append(f'firebase/firestore.rules: collection "{c}" is not in shared/user-data.json — add it there so it is exported and deleted with the account.')
+        for c in sorted(listed - in_rules):
+            errors.append(f'shared/user-data.json lists "{c}" but firebase/firestore.rules has no rule for it.')
+        for d in folders():
+            if d.startswith('apps/') and (ROOT / d / 'public/config.js').exists() and d.split('/')[1] not in reg['apps']:
+                errors.append(f'{d} uses Firebase but is not listed in shared/user-data.json (add its collections under "apps").')
+
     for e in errors:
         print('::error::' + e if os.environ.get('GITHUB_ACTIONS') else 'ERROR ' + e)
     print(f'{len(errors)} problem(s) found.' if errors else 'All checks passed.')
