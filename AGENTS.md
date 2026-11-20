@@ -35,16 +35,16 @@ A monorepo of small, independent PWAs. Each app is its own Netlify site, deploye
 
 ## Releases
 
-Netlify never builds from Git (`ignore = "exit 0"` in every `netlify.toml`). Creating a release tag is manual; deploying is automatic: `.github/workflows/release.yml` deploys with the Netlify CLI whenever a `v*` tag is pushed.
+Netlify never builds from Git (`ignore = "exit 0"` in every `netlify.toml`). `.github/workflows/release.yml` deploys with the Netlify CLI. Releasing is a manual decision; everything after it is automatic.
 
-- **Normal release: `npm run release`.** `scripts/release.mjs` fetches `origin/main`, shows the commits and the folders that would ship (changed since the last `v*` tag), asks for confirmation, then tags `origin/main` as `vYYYY.MM.DD` (`.2`, `.3` … for more releases on one day) and pushes the tag. Options: `--dry-run` (change nothing), `--yes` (no question), `--force` (tag even if nothing deployable changed).
-- Without a computer (for example from a phone): GitHub → Releases → Draft a new release, new tag `v…`, target `main` → Publish. The same workflow runs for the tag.
-- The workflow never creates tags. **Actions → Release → Run workflow** is only an emergency redeploy of `main`: input `all` or a list of folders (e.g. `apps/spend site`); it creates no tag and does not touch the Firestore rules.
+- **Normal release: Actions → Release → Run workflow** (action `release`, the default; works from a phone). It deploys what changed on `main` since the last `v*` tag and, once everything is deployed, tags `main` as `vYYYY.MM.DD` (`.2`, `.3` … for more releases on one day). If nothing deployable changed it stops without a tag (tick `force` to tag anyway).
+- A `v*` tag created any other way deploys the same way: `npm run release` (`scripts/release.mjs`: shows the commits and folders that would ship, asks, tags `origin/main`, pushes; `--dry-run`, `--yes`, `--force`), or GitHub → Releases → Draft a new release with a new `v…` tag on `main`.
+- Action `redeploy` is an emergency redeploy of `main`: fill in `apps` with `all` or folders (e.g. `apps/spend site`); it creates no tag and does not touch the Firestore rules.
 - "Shipped files" are an app's publish directory and functions. README/Markdown, `src/`, tests and package files alone never trigger a deploy — but a rebuilt `public/app.js` does.
-- Firestore rules are published in a tag run, only when they changed since the previous tag, and only after their tests pass.
+- Firestore rules are published in a release run (button or tag), only when they changed since the previous tag, and only after their tests pass.
 - `.github/workflows/monitor.yml` checks every morning that all sites answer and run the latest release, and opens an issue if not.
 
-Tools: `npm run release`, `npm run new-app` (new app from `apps/_template`, registered everywhere), `npm run sync-shared`, `npm run check`, `npm run test:smoke`, `npm run test:rules`. Dependabot opens monthly update PRs; an app dependency update needs a rebuild and a CACHE bump before CI passes.
+Tools: `npm run release` (tag from the command line), `npm run new-app` (new app from `apps/_template`, registered everywhere), `npm run sync-shared`, `npm run check`, `npm run test:smoke`, `npm run test:rules`. Dependabot opens monthly update PRs; an app dependency update needs a rebuild and a CACHE bump before CI passes.
 
 ## Before committing
 
