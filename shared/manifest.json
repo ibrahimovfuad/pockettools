@@ -1,0 +1,6 @@
+{
+  "_comment": "Files shared by several apps. Edit them here, then run \"npm run sync-shared\" to copy them into each app (apps stay independent: each folder still deploys on its own). CI fails if a copy differs. Each copy that changes is a served file, so bump that app's CACHE.",
+  "nozoom.js": ["apps/bookshelf/public", "apps/habits/public", "apps/mood/public", "apps/spend/public", "apps/timer/public", "apps/videocall"],
+  "onboarding.js": ["apps/bookshelf/public", "apps/habits/public", "apps/mood/public", "apps/spend/public"],
+  "config.js": ["apps/bookshelf/public", "apps/habits/public", "apps/mood/public", "apps/spend/public"]
+}

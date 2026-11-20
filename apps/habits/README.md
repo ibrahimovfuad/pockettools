@@ -33,6 +33,7 @@ After changing the app, bump the cache version in `public/sw.js` so installed co
 1. Create a Firebase project with Google sign-in and Firestore; publish [`firebase/firestore.rules`](../../firebase/firestore.rules).
 2. Put your Firebase web config into `public/config.js` and your project ID into `public/_redirects`.
 3. Netlify → import this repository → **Base directory** `apps/habits`. No build runs on Netlify — the bundle is committed.
+   In a fork, delete `ignore = "exit 0"` from `netlify.toml` first — this repository deploys with release tags instead of Netlify Git builds.
 4. Add your Netlify domain to Firebase **Authorized domains** and to the Google OAuth client redirect URIs (`https://<site>/__/auth/handler`).
 
 Notes in Russian: [README.ru.md](README.ru.md).

@@ -37,7 +37,7 @@ apps/
     README.md
     netlify.toml      build settings + "ignore" rule (only rebuild when this folder changes)
     ...
-  _template/          starting point for a new app
+  _template/          starting point for a new app (npm run new-app)
 firebase/
   firestore.rules     security rules shared by the Firebase-based apps
 site/                 project homepage (its own Netlify site, base directory `site`)
@@ -48,6 +48,7 @@ site/                 project homepage (its own Netlify site, base directory `si
 1. Fork this repository.
 2. In Netlify: **Add new project → Import an existing project → GitHub** and pick your fork.
 3. Set **Base directory** to the app folder, e.g. `apps/<app-name>`. Build command and publish directory are read from that folder's `netlify.toml`.
+   Delete the line `ignore = "exit 0"` from that `netlify.toml` first: this repository switches Netlify's Git builds off and deploys with release tags instead (see [AGENTS.md](AGENTS.md#releases)).
 4. Repeat for every app you want — each one becomes its own site with its own URL.
 
 Some apps need extra configuration (API keys, environment variables). Their README explains exactly what to set.

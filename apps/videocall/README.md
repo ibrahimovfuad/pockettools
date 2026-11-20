@@ -21,6 +21,7 @@ Camera access requires HTTPS or `localhost`.
 ## Deploy
 
 Netlify → import this repository → **Base directory** `apps/videocall`. No build step.
+In a fork, delete `ignore = "exit 0"` from `netlify.toml` first — this repository deploys with release tags instead of Netlify Git builds.
 
 ### Optional configuration
 

@@ -18,6 +18,7 @@ npx serve public
 ## Deploy
 
 Netlify → import this repository → **Base directory** `apps/timer`. No build step.
+In a fork, delete `ignore = "exit 0"` from `netlify.toml` first — this repository deploys with release tags instead of Netlify Git builds.
 
 ## License
 

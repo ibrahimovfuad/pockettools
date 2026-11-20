@@ -1,15 +1,13 @@
 {
-  "_comment": "Apps listed in gitLinked are deployed by Netlify itself (linked to this repo). Every other folder in apps/ with a netlify.toml gets its own site, created and deployed by .github/workflows/netlify-apps.yml. The site name is names[folder] if set, else the folder name + \"2\"; if that name is taken the workflow stops instead of inventing one, so check availability and choose a name before adding an app.",
+  "_comment": "Every deployable folder and its Netlify site name. All sites are deployed by .github/workflows/release.yml with the Netlify CLI (Git builds are switched off with ignore = \"exit 0\" in each netlify.toml). A folder in apps/ that is missing here gets <folder>2; if that name is taken the release stops instead of inventing one, so choose a free name before adding an app (scripts/new-app.mjs does this).",
   "accountSlug": "nill-hqd83zi",
-  "gitLinked": {
+  "sites": {
+    "apps/videocall": "facetime2",
+    "apps/timer": "timerr2",
     "apps/mood": "moodlog2",
     "apps/habits": "habitslog2",
     "apps/bookshelf": "shelff2",
-    "apps/timer": "timerr2",
-    "apps/videocall": "facetime2",
+    "apps/spend": "spendlog2",
     "site": "pockettools2"
-  },
-  "names": {
-    "apps/spend": "spendlog2"
   }
 }

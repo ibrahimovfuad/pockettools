@@ -27,7 +27,7 @@ npx serve public     # demo mode: open http://localhost:3000/#demo
 
 ## Deploy
 
-Deployed by [`.github/workflows/netlify-apps.yml`](../../.github/workflows/netlify-apps.yml) on every push that changes this folder (`netlify deploy --prod --no-build`, publish directory `public`). For Google sign-in on a new domain, also add `https://<domain>/__/auth/handler` to the Google OAuth client's redirect URIs.
+Deployed by the release workflow ([`.github/workflows/release.yml`](../../.github/workflows/release.yml)) when a release includes changes to `public/` (`netlify deploy --prod --no-build`). For Google sign-in on a new domain, also add `https://<domain>/__/auth/handler` to the Google OAuth client's redirect URIs.
 
 ## License
 

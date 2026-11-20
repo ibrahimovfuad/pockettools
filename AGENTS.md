@@ -13,10 +13,12 @@ A monorepo of small, independent PWAs. Each app is its own Netlify site, deploye
 | `apps/mood` | moodlog2.netlify.app | esbuild bundle + Netlify Functions |
 | `apps/habits` | habitslog2.netlify.app | esbuild bundle |
 | `apps/bookshelf` | shelff2.netlify.app | esbuild bundle |
-| `apps/spend` | spendlog2.netlify.app | esbuild bundle — site created and deployed by `.github/workflows/netlify-apps.yml` (not Git-linked) |
+| `apps/spend` | spendlog2.netlify.app | esbuild bundle |
 | `site` | pockettools2.netlify.app | none — project homepage |
 
-`firebase/firestore.rules` holds the Firestore security rules shared by the Firebase apps. A push to `main` that changes it publishes it automatically (`.github/workflows/firestore-rules.yml`). Never loosen a rule without a reason: every collection must stay readable and writable only by its owner (`request.auth.uid`).
+`firebase/firestore.rules` holds the Firestore security rules shared by the Firebase apps, with tests in `firebase/test/` (run on the emulator by CI and before every publish). Never loosen a rule without a reason: every collection must stay readable and writable only by its owner (`request.auth.uid`). Add tests for every new collection.
+
+`shared/` holds files copied into several apps (`nozoom.js`, `onboarding.js`, `config.js`). Edit them there and run `npm run sync-shared`; never edit a copy.
 
 ## Rules
 
@@ -28,13 +30,27 @@ A monorepo of small, independent PWAs. Each app is its own Netlify site, deploye
 6. **Secrets never go in the repo.** The Firebase web config in `public/config.js` is public by design (it is not a secret). Everything else — VAPID keys, tokens, passwords — lives only in Netlify environment variables and is documented in the app's README.
 7. **English only.** UI text, comments, commit messages and docs are in English (the `README.ru.md` setup guides are the one exception). Use typographic apostrophes (`’`) inside single-quoted JS strings, or switch to template literals.
 8. **Data compatibility.** Users already have data in Firestore. Don't rename stored fields or values without a migration. Bookshelf maps legacy Russian format/genre values via `LEGACY` in `src/main.js`; Russian aliases in import parsers are intentional.
-9. **Deploys cost credits.** Each successful production deploy of an app costs Netlify credits, and every push to `main` that touches an app folder deploys it. Group changes into as few commits/pushes as possible; changes outside `apps/` and `site/` (root docs, `.github/`) don't deploy anything.
+9. **Never push to `main`.** Work on a branch (`fix/…`, `feat/…`, `ci/…`), open a pull request and merge it only when the **CI ok** check is green. `main` is protected by a ruleset.
+10. **Merging never deploys; releases do.** Each production deploy costs Netlify credits, so batch merged work into one release (see below).
+
+## Releases
+
+Netlify never builds from Git (`ignore = "exit 0"` in every `netlify.toml`). `.github/workflows/release.yml` deploys with the Netlify CLI:
+
+- **Actions → Release → Run workflow** deploys every folder whose shipped files changed since the last `v*` tag and then creates the next tag (`vYYYY.MM.DD`, `.2`, `.3` … for more releases on one day). Input `all` or a list of folders forces a deploy.
+- Creating a `v*` tag yourself (GitHub → Releases) does the same for the tagged commit.
+- "Shipped files" are an app's publish directory and functions. README/Markdown, `src/`, tests and package files alone never trigger a deploy — but a rebuilt `public/app.js` does.
+- Firestore rules are published in the same run, only when they changed, and only after their tests pass.
+- `.github/workflows/monitor.yml` checks every morning that all sites answer and run the latest release, and opens an issue if not.
+
+Tools: `npm run new-app` (new app from `apps/_template`, registered everywhere), `npm run sync-shared`, `npm run check`, `npm run test:smoke`, `npm run test:rules`. Dependabot opens monthly update PRs; an app dependency update needs a rebuild and a CACHE bump before CI passes.
 
 ## Before committing
 
 - `node --check` on any plain JS file you changed; `npm run build` for bundled apps (must finish without errors).
+- `npm run check` (the same checks CI runs), plus `npm run test:rules` when the rules change.
 - Open the app locally (`npx serve <folder>`) and check the changed screen in a mobile-sized window. Firebase apps run in demo mode if `config.js` has a placeholder key.
-- Make sure no Cyrillic UI text or secrets slipped in: `grep -rnP '[А-Яа-яЁё]' apps/*/src apps/*/public/*.html`.
+- Make sure no secrets slipped in. Cyrillic is caught by `npm run check`; intentional Russian aliases carry a `cyrillic-ok` comment.
 - Update `CHANGELOG.md` for user-visible changes.
 
 ## Each app's README
