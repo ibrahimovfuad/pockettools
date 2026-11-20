@@ -25,21 +25,23 @@ def find(name):
     return None
 
 def ensure(app_dir):
-    base = CFG['names'].get(app_dir) or f"{Path(app_dir).name}-pockettools"
-    for name in (base, base + '-' + os.environ.get('GITHUB_REPOSITORY_ID', '0')[-4:]):
-        if not NAME.match(name):
-            sys.exit(f'Bad site name {name!r} for {app_dir}')
-        site = find(name)
-        if site:
-            return site, False
-        try:
-            site = call('POST', f"/{CFG['accountSlug']}/sites", {'name': name})
-            print(f'Created site {name} for {app_dir}', file=sys.stderr)
-            return site, True
-        except urllib.error.HTTPError as e:
-            if e.code != 422:  # 422 = name taken by someone else: try the fallback name
-                raise
-    sys.exit(f'Could not create a site for {app_dir}')
+    # Site name = the name chosen in .github/netlify-sites.json, else the folder name + "2". Never invented:
+    # if it is taken by someone else, stop and ask for another name instead of adding a suffix.
+    name = CFG['names'].get(app_dir) or Path(app_dir).name + '2'
+    if not NAME.match(name):
+        sys.exit(f'Bad site name {name!r} for {app_dir}')
+    site = find(name)
+    if site:
+        return site, False
+    try:
+        site = call('POST', f"/{CFG['accountSlug']}/sites", {'name': name})
+    except urllib.error.HTTPError as e:
+        if e.code == 422:
+            sys.exit(f'The site name "{name}" is already taken on Netlify. Pick another one and set it in '
+                     f'.github/netlify-sites.json → names → "{app_dir}".')
+        raise
+    print(f'Created site {name} for {app_dir}', file=sys.stderr)
+    return site, True
 
 apps = sorted(str(p.parent) for p in Path('apps').glob('*/netlify.toml')
               if p.parent.name != '_template' and str(p.parent) not in CFG['gitLinked'])
