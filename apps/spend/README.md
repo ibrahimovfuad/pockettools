@@ -10,7 +10,7 @@ Log an expense in two taps: type the amount, tap a category. Live at https://spe
 - **Your categories** — add, rename, recolor, choose an icon, delete and drag to reorder (Settings). Eight defaults are created on first sign-in.
 - **Month view** — total, optional monthly budget bar, spending by category and every expense by day; tap one to edit or delete it.
 - **Apple Pay** — a Shortcuts automation (Automation → Wallet / Transaction → Open URLs) opens
-  `https://spendlog2.netlify.app/?amount=<Amount>&merchant=<Merchant>`; the app jumps to the category step with the amount and shop filled in. Turn on “Always file <shop> under…” and the next payment there is saved automatically.
+  `https://spendlog2.netlify.app/?amount=<Amount>&merchant=<Merchant>`; the app jumps to the category step with the amount and shop filled in. Turn on “Always file <shop> under…” and the next payment there arrives with that category pre-selected: one tap on Save confirms it. Nothing is saved without a tap, so a link opened by mistake (or by someone else) never adds an expense.
 - CSV export, Google sign-in, offline-first sync through Firestore, installable PWA, iOS look with light/dark mode.
 
 ## Data (Firestore)

@@ -15,10 +15,15 @@ const linkOf = r => location.origin + location.pathname + '#' + r;
 addEventListener('hashchange', () => location.reload());
 
 // ===== Permanent link: stored on this device =====
+// The room id is the only secret of a call link, so it comes from the browser's cryptographic random generator:
+// 20 characters of a 31-letter alphabet, about 99 bits. (Links made by earlier versions are shorter but keep working.)
 function newRoomId() {
-  const a = 'abcdefghjkmnpqrstuvwxyz23456789';
+  const a = 'abcdefghjkmnpqrstuvwxyz23456789';   // 31 symbols
+  const limit = 256 - (256 % a.length);          // throw away bytes that would make some letters more likely
   let s = 'call-';
-  for (let i = 0; i < 10; i++) s += a[Math.floor(Math.random() * a.length)];
+  while (s.length < 5 + 20) {
+    for (const b of crypto.getRandomValues(new Uint8Array(32))) { if (b < limit && s.length < 5 + 20) s += a[b % a.length]; }
+  }
   return s;
 }
 function myRoom(fresh) {
@@ -99,15 +104,38 @@ function join() {
   setMain(''); setAlt('');
   say('Connecting…');
   if (peer) peer.destroy();
+  clearIncoming();
   isHost = false;
   const p = peer = new Peer(room, { config:{ iceServers } });   // try to claim the room
   p.on('open', () => { isHost = true; idle('Waiting for the other person…'); });
-  p.on('call', c => { if (call) call.close(); say('Connecting the call…'); c.answer(stream); preferH264(c.peerConnection); watch(c); });
+  p.on('call', c => {
+    if (call || incoming) { c.close(); return; }   // one call at a time: a second caller is turned away, the call in progress is left alone
+    ring(c);
+  });
   p.on('error', e => {
     if (e.type === 'unavailable-id') { p.destroy(); asGuest(); }   // room is taken → someone is already waiting there
     else netError(e);
   });
   p.on('disconnected', () => setTimeout(() => peer === p && !p.destroyed && p.reconnect(), 2000));
+}
+
+// An incoming call is answered only when you tap Answer: nobody who has the link gets your camera and microphone by just calling.
+let incoming = null, incomingTimer = null;
+function clearIncoming() { incoming = null; clearTimeout(incomingTimer); }
+function ring(c) {
+  incoming = c;
+  say('Someone is calling you');
+  setMain('Answer', () => { clearIncoming(); answer(c); });
+  setAlt('Decline', () => { clearIncoming(); c.close(); idle('Waiting for the other person…'); });
+  c.on('close', () => { if (incoming === c) { clearIncoming(); idle('Waiting for the other person…'); } });   // the caller gave up
+  incomingTimer = setTimeout(() => { if (incoming === c) { clearIncoming(); c.close(); idle('Waiting for the other person…'); } }, 30000);
+}
+function answer(c) {
+  setMain(''); setAlt('');
+  say('Connecting the call…');
+  c.answer(stream);
+  preferH264(c.peerConnection);
+  watch(c);
 }
 
 function asGuest() {
