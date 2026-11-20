@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// Command-line alternative to Actions → Release → Run workflow.
 // Creates the next release tag on origin/main and pushes it. Pushing a v* tag is what deploys:
 // .github/workflows/release.yml then ships every folder whose files changed since the previous v* tag.
 //

@@ -1,24 +1,32 @@
 # Releases: the only way anything reaches production.
 #
-# Creating a tag is manual, deploying is automatic: pushing a tag v… deploys what changed since the previous v* tag.
-#   • npm run release   (scripts/release.mjs: tags the latest origin/main as vYYYY.MM.DD and pushes the tag)
-#   • or GitHub → Releases → Draft a new release (target main, new tag v…), also possible from a phone
-# This workflow never creates tags.
-#
-# Emergency redeploy: Actions → Release → Run workflow with apps = all (or folders separated by spaces) deploys the
-# current main without a tag. Normal releases do not need it.
+#   • Actions → Release → Run workflow (action = release): tags the latest main as vYYYY.MM.DD (.2, .3 … for more
+#     releases on one day) and deploys, in the same run, what changed since the previous v* tag. Works from a phone.
+#   • A v* tag pushed some other way (npm run release, or GitHub → Releases → Draft a new release) deploys the same way.
+#   • action = redeploy: emergency redeploy of main — "all" or folders in `apps`; no tag, no Firestore rules.
 #
 # Only folders whose shipped files changed are deployed (README, src/ and tests alone never cost a deploy), and
 # Firestore rules are published only if they changed since the previous tag — after their emulator tests pass.
+# (A tag pushed with the workflow's own token does not start another run, which is why the button deploys itself.)
 # Secrets: NETLIFY_AUTH_TOKEN, FIREBASE_SERVICE_ACCOUNT (rules), FIREBASE_AUTH_ADMIN (auth domains).
 name: Release
 
 on:
   workflow_dispatch:
     inputs:
+      action:
+        description: 'release = tag main and deploy what changed; redeploy = redeploy the folders below, no tag'
+        type: choice
+        options: [release, redeploy]
+        default: release
       apps:
-        description: 'Emergency redeploy of main, no tag: "all" or folders separated by spaces (e.g. apps/spend site)'
-        required: true
+        description: 'Only for redeploy: "all" or folders separated by spaces (e.g. apps/spend site)'
+        required: false
+        default: ''
+      force:
+        description: 'Only for release: tag even if nothing deployable changed'
+        type: boolean
+        default: false
   push:
     tags: ['v*']
 
@@ -37,6 +45,7 @@ jobs:
       base: ${{ steps.plan.outputs.base }}
       apps: ${{ steps.plan.outputs.apps }}
       rules: ${{ steps.plan.outputs.rules }}
+      tag: ${{ steps.plan.outputs.tag }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
@@ -45,9 +54,30 @@ jobs:
         id: plan
         env:
           WANT: ${{ github.event.inputs.apps }}
+          ACTION: ${{ github.event.inputs.action }}
+          FORCE: ${{ github.event.inputs.force }}
         run: |
-          BASE=""; RULES=false
-          if [ "${{ github.event_name }}" = "push" ]; then
+          BASE=""; RULES=false; TAG=""; APPS=""
+          if [ "${{ github.event_name }}" != "push" ] && [ "$GITHUB_REF" != "refs/heads/main" ]; then
+            echo "::error::Run this workflow on main."; exit 1
+          fi
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "$ACTION" = "release" ]; then
+            # The release button: tag main (after a successful deploy) and ship what changed since the last v* tag
+            if [ -n "$(git tag --points-at HEAD --list 'v*')" ]; then
+              echo "::notice::main ($(git rev-parse --short HEAD)) is already released as $(git tag --points-at HEAD --list 'v*' | xargs). Nothing to do."
+            else
+              BASE="$(git describe --tags --abbrev=0 --match 'v*' HEAD 2>/dev/null || true)"
+              if [ -z "$BASE" ]; then echo "::error::No earlier v* tag to compare with. Use action = redeploy with apps = all."; exit 1; fi
+              APPS="$(python3 .github/scripts/pt.py changed "$BASE" HEAD | tr '\n' ' ' | xargs)"
+              if ! git diff --quiet "$BASE" HEAD -- firebase/firestore.rules firebase.json; then RULES=true; fi
+              if [ -z "$APPS" ] && [ "$RULES" = false ] && [ "$FORCE" != true ]; then
+                echo "::notice::Nothing deployable changed since $BASE. Run again with force to tag anyway."
+              else
+                D="v$(date -u +%Y.%m.%d)"; N=1; TAG="$D"
+                while git rev-parse -q --verify "refs/tags/$TAG" >/dev/null; do N=$((N + 1)); TAG="$D.$N"; done
+              fi
+            fi
+          elif [ "${{ github.event_name }}" = "push" ]; then
             # A new v* tag: deploy what changed since the previous v* tag
             BASE="$(git describe --tags --abbrev=0 --match 'v*' "${GITHUB_SHA}^" 2>/dev/null || true)"
             if [ -z "$BASE" ]; then
@@ -57,9 +87,7 @@ jobs:
             if ! git diff --quiet "$BASE" "$GITHUB_SHA" -- firebase/firestore.rules firebase.json; then RULES=true; fi
           else
             # Emergency redeploy of main: explicit folders, no tag, no rules
-            if [ "$GITHUB_REF" != "refs/heads/main" ]; then
-              echo "::error::Run this workflow on main."; exit 1
-            fi
+            if [ -z "$WANT" ]; then echo "::error::For redeploy, fill in apps: all, or folders separated by spaces."; exit 1; fi
             case "$WANT" in
               all) APPS="$(python3 -c 'import sys; sys.path.insert(0, ".github/scripts"); import pt; print(" ".join(pt.folders()))')" ;;
               *)   APPS="$WANT" ;;
@@ -68,12 +96,14 @@ jobs:
           echo "base=$BASE" >> "$GITHUB_OUTPUT"
           echo "apps=$APPS" >> "$GITHUB_OUTPUT"
           echo "rules=$RULES" >> "$GITHUB_OUTPUT"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
           {
             echo "### Release plan"
             echo "- Trigger: ${{ github.event_name }}"
             echo "- Compared with: \`${BASE:-—}\`"
             echo "- Deploy: ${APPS:-nothing}"
             echo "- Firestore rules: $RULES"
+            echo "- New tag: ${TAG:-—}"
           } >> "$GITHUB_STEP_SUMMARY"
 
   rules:
@@ -117,7 +147,7 @@ jobs:
             echo "::group::Deploy $dir → $domain"
             # Functions are bundled by the CLI and need the app's own dependencies
             if [ -d "$dir/netlify/functions" ] && [ -f "$dir/package-lock.json" ]; then (cd "$dir" && npm ci --no-audit --no-fund); fi
-            (cd "$dir" && npx -y netlify-cli@27.20.1 deploy --prod --no-build --site "$site" --message "${GITHUB_REF_NAME} ${GITHUB_SHA::7}")
+            (cd "$dir" && npx -y netlify-cli@27.20.1 deploy --prod --no-build --site "$site" --message "${{ needs.plan.outputs.tag || github.ref_name }} ${GITHUB_SHA::7}")
             echo "- $dir → https://$domain" >> "$GITHUB_STEP_SUMMARY"
             echo "::endgroup::"
           done < deploy.txt
@@ -135,3 +165,22 @@ jobs:
         env:
           EXTRA_DOMAINS: ${{ steps.domains.outputs.list }}
         run: TOKEN="$(gcloud auth print-access-token)" python3 .github/scripts/add_auth_domains.py
+
+  tag:
+    # The release button tags main only after everything deployed, so a failed run can simply be started again.
+    needs: [plan, rules, apps]
+    if: always() && needs.plan.outputs.tag != '' && needs.rules.result != 'failure' && needs.apps.result != 'failure'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - name: Create the release tag
+        env:
+          TAG: ${{ needs.plan.outputs.tag }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a "$TAG" -m "Release $TAG" "$GITHUB_SHA"
+          git push origin "$TAG"
+          echo "Tagged **$TAG** on \`${GITHUB_SHA::7}\`" >> "$GITHUB_STEP_SUMMARY"
