@@ -1,7 +1,8 @@
 # Adds the domains listed in firebase/authorized-domains.txt to Firebase Auth's authorized domains.
 # Additive only (never removes a domain). Needs the repository secret FIREBASE_AUTH_ADMIN: a separate
 # service-account JSON key with only the "Firebase Authentication Admin" and "Service Usage Consumer"
-# roles. Forks and pull requests never get it.
+# roles. Forks and pull requests never get it. The job runs in the GitHub Environment "production" (see the
+# hardening notes in release.yml), so with a required reviewer there it needs your approval too.
 name: Add Firebase auth domains
 
 on:
@@ -21,12 +22,15 @@ concurrency:
 jobs:
   add-domains:
     runs-on: ubuntu-latest
-    if: github.repository == 'ibrahimovfuad/pockettools'
+    if: github.repository == 'ibrahimovfuad/pockettools' && github.ref == 'refs/heads/main'
+    environment: production
     steps:
-      - uses: actions/checkout@v4
-      - uses: google-github-actions/auth@v2
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: google-github-actions/auth@c200f3691d83b41bf9bbd8638997a462592937ed # v2.1.13
         with:
           credentials_json: ${{ secrets.FIREBASE_AUTH_ADMIN }}
-      - uses: google-github-actions/setup-gcloud@v2
+      - uses: google-github-actions/setup-gcloud@e427ad8a34f8676edf47cf7d7925499adf3eb74f # v2.2.1
       - name: Add missing domains
         run: TOKEN="$(gcloud auth print-access-token)" python3 .github/scripts/add_auth_domains.py

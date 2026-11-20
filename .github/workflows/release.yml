@@ -9,6 +9,18 @@
 # Firestore rules are published only if they changed since the previous tag — after their emulator tests pass.
 # (A tag pushed with the workflow's own token does not start another run, which is why the button deploys itself.)
 # Secrets: NETLIFY_AUTH_TOKEN, FIREBASE_SERVICE_ACCOUNT (rules), FIREBASE_AUTH_ADMIN (auth domains).
+#
+# Hardening (see "Security" in AGENTS.md):
+#   • The jobs that use secrets (rules, apps, tag) run in the GitHub Environment "production". Create it under
+#     Settings → Environments, add yourself as required reviewer and restrict deployments to the branch main and the
+#     tags v*; then nobody (and no stray branch or tag) can reach the secrets without your approval.
+#     Each of those jobs asks for approval, so one release asks up to three times.
+#   • Secrets are given to the one step that needs them, never to a whole job, and never while dependencies are
+#     being installed. Installs use --ignore-scripts, so no package install script can see a secret.
+#   • netlify-cli and firebase-tools come from tools/deploy (committed package.json + package-lock.json), not from npx.
+#   • The commit being released must be on main, also for tags pushed by hand.
+#   • No ${{ }} expression is expanded inside a shell script: values go through env: and are quoted, and the list of
+#     folders is checked against the folders that exist in the repository.
 name: Release
 
 on:
@@ -50,6 +62,7 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           fetch-depth: 0
+          persist-credentials: false
       - name: Work out what changed
         id: plan
         env:
@@ -58,10 +71,17 @@ jobs:
           FORCE: ${{ github.event.inputs.force }}
         run: |
           BASE=""; RULES=false; TAG=""; APPS=""
-          if [ "${{ github.event_name }}" != "push" ] && [ "$GITHUB_REF" != "refs/heads/main" ]; then
+          # Only commits that are on main can be released (a tag pushed on a side branch is refused)
+          git fetch --no-tags origin main
+          if [ "$GITHUB_EVENT_NAME" = "push" ]; then
+            case "$GITHUB_REF" in refs/tags/v*) ;; *) echo "::error::Not a v* tag."; exit 1 ;; esac
+            if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/main; then
+              echo "::error::This tag points at a commit that is not on main. Releases are made from main only."; exit 1
+            fi
+          elif [ "$GITHUB_REF" != "refs/heads/main" ]; then
             echo "::error::Run this workflow on main."; exit 1
           fi
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "$ACTION" = "release" ]; then
+          if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ] && [ "$ACTION" = "release" ]; then
             # The release button: tag main (after a successful deploy) and ship what changed since the last v* tag
             if [ -n "$(git tag --points-at HEAD --list 'v*')" ]; then
               echo "::notice::main ($(git rev-parse --short HEAD)) is already released as $(git tag --points-at HEAD --list 'v*' | xargs). Nothing to do."
@@ -77,29 +97,34 @@ jobs:
                 while git rev-parse -q --verify "refs/tags/$TAG" >/dev/null; do N=$((N + 1)); TAG="$D.$N"; done
               fi
             fi
-          elif [ "${{ github.event_name }}" = "push" ]; then
+          elif [ "$GITHUB_EVENT_NAME" = "push" ]; then
             # A new v* tag: deploy what changed since the previous v* tag
             BASE="$(git describe --tags --abbrev=0 --match 'v*' "${GITHUB_SHA}^" 2>/dev/null || true)"
             if [ -z "$BASE" ]; then
               echo "::error::No earlier v* tag to compare with. Run the workflow manually with apps = all."; exit 1
             fi
-            APPS="$(python3 .github/scripts/pt.py changed "$BASE" "$GITHUB_SHA" | tr '\n' ' ')"
+            APPS="$(python3 .github/scripts/pt.py changed "$BASE" "$GITHUB_SHA" | tr '\n' ' ' | xargs)"
             if ! git diff --quiet "$BASE" "$GITHUB_SHA" -- firebase/firestore.rules firebase.json; then RULES=true; fi
           else
             # Emergency redeploy of main: explicit folders, no tag, no rules
             if [ -z "$WANT" ]; then echo "::error::For redeploy, fill in apps: all, or folders separated by spaces."; exit 1; fi
-            case "$WANT" in
-              all) APPS="$(python3 -c 'import sys; sys.path.insert(0, ".github/scripts"); import pt; print(" ".join(pt.folders()))')" ;;
-              *)   APPS="$WANT" ;;
-            esac
+            if [ "$WANT" = "all" ]; then
+              APPS="$(python3 .github/scripts/pt.py folders | tr '\n' ' ' | xargs)"
+            else
+              read -r -a REQUESTED <<< "$WANT"
+              APPS="$(python3 .github/scripts/pt.py validate "${REQUESTED[@]}" | tr '\n' ' ' | xargs)"   # refuses anything that is not a known folder
+            fi
           fi
-          echo "base=$BASE" >> "$GITHUB_OUTPUT"
-          echo "apps=$APPS" >> "$GITHUB_OUTPUT"
-          echo "rules=$RULES" >> "$GITHUB_OUTPUT"
-          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          if [ -n "$APPS" ]; then read -r -a CHECK <<< "$APPS"; python3 .github/scripts/pt.py validate "${CHECK[@]}" > /dev/null; fi
+          {
+            echo "base=$BASE"
+            echo "apps=$APPS"
+            echo "rules=$RULES"
+            echo "tag=$TAG"
+          } >> "$GITHUB_OUTPUT"
           {
             echo "### Release plan"
-            echo "- Trigger: ${{ github.event_name }}"
+            echo "- Trigger: $GITHUB_EVENT_NAME"
             echo "- Compared with: \`${BASE:-—}\`"
             echo "- Deploy: ${APPS:-nothing}"
             echo "- Firestore rules: $RULES"
@@ -110,8 +135,11 @@ jobs:
     needs: plan
     if: needs.plan.outputs.rules == 'true'
     runs-on: ubuntu-latest
+    environment: production
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 22
@@ -119,40 +147,64 @@ jobs:
         with:
           distribution: temurin
           java-version: 21
-      - run: npm ci
+      - name: Install dependencies (no install scripts, no secrets)
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          npm ci --ignore-scripts --no-audit --no-fund --prefix tools/deploy
       - name: Test the rules on the emulator
         run: npm run test:rules
       - uses: google-github-actions/auth@c200f3691d83b41bf9bbd8638997a462592937ed # v2.1.13
         with:
           credentials_json: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
       - name: Publish the rules
-        run: npx firebase deploy --only firestore:rules --project login-e91f7 --non-interactive
+        run: '"$GITHUB_WORKSPACE/tools/deploy/node_modules/.bin/firebase" deploy --only firestore:rules --project login-e91f7 --non-interactive'
 
   apps:
     needs: [plan, rules]
     if: always() && needs.plan.result == 'success' && needs.rules.result != 'failure' && needs.plan.outputs.apps != ''
     runs-on: ubuntu-latest
-    env:
-      NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+    environment: production
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 22
-      - name: Find or create the Netlify sites
-        run: python3 .github/scripts/pt.py sites ${{ needs.plan.outputs.apps }} | tee deploy.txt
-      - name: Deploy
+      - name: Install the deploy tools and the functions' dependencies (no install scripts, no secrets)
+        env:
+          APPS: ${{ needs.plan.outputs.apps }}
         run: |
+          read -r -a DIRS <<< "$APPS"
+          python3 .github/scripts/pt.py validate "${DIRS[@]}" > /dev/null
+          npm ci --ignore-scripts --no-audit --no-fund --prefix tools/deploy
+          for d in "${DIRS[@]}"; do
+            # Functions are bundled by the CLI and need the app's own production dependencies
+            if [ -d "$d/netlify/functions" ] && [ -f "$d/package-lock.json" ]; then
+              (cd "$d" && npm ci --omit=dev --ignore-scripts --no-audit --no-fund)
+            fi
+          done
+      # The token is needed by exactly two steps (finding the sites and deploying); everything before them is secret-free.
+      - name: Find or create the Netlify sites
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          APPS: ${{ needs.plan.outputs.apps }}
+        run: |
+          read -r -a DIRS <<< "$APPS"
+          python3 .github/scripts/pt.py sites "${DIRS[@]}" | tee deploy.txt
+      - name: Deploy
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          RELEASE_TAG: ${{ needs.plan.outputs.tag }}
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          NETLIFY="$GITHUB_WORKSPACE/tools/deploy/node_modules/.bin/netlify"
           while read -r dir site domain firebase pub fns; do
             echo "::group::Deploy $dir → $domain"
-            # Functions are bundled by the CLI and need the app's own dependencies
             FN=()
-            if [ "$fns" != "-" ]; then
-              [ -f "$dir/package-lock.json" ] && (cd "$dir" && npm ci --no-audit --no-fund)
-              FN=(--functions "$fns")
-            fi
+            if [ "$fns" != "-" ]; then FN=(--functions "$fns"); fi
             # Explicit absolute --dir/--functions: the CLI would otherwise resolve netlify.toml paths from the Git root
-            (cd "$dir" && npx -y netlify-cli@27.20.1 deploy --prod --no-build --site "$site" --dir "$pub" "${FN[@]}" --message "${{ needs.plan.outputs.tag || github.ref_name }} ${GITHUB_SHA::7}")
+            (cd "$dir" && "$NETLIFY" deploy --prod --no-build --site "$site" --dir "$pub" "${FN[@]}" --message "${RELEASE_TAG:-$REF_NAME} ${GITHUB_SHA::7}")
             echo "- $dir → https://$domain" >> "$GITHUB_STEP_SUMMARY"
             echo "::endgroup::"
           done < deploy.txt
@@ -176,10 +228,12 @@ jobs:
     needs: [plan, rules, apps]
     if: always() && needs.plan.outputs.tag != '' && needs.rules.result != 'failure' && needs.apps.result != 'failure'
     runs-on: ubuntu-latest
+    environment: production
     permissions:
       contents: write
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        # The checkout keeps its credentials here (and only here): the next step pushes the tag.
       - name: Create the release tag
         env:
           TAG: ${{ needs.plan.outputs.tag }}
